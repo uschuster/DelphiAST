@@ -195,6 +195,7 @@ type
   private
     FOnMessage: TMessageEvent;
     FLexer: TmwPasLex;
+    FIncludeComments: Boolean;
     FInterfaceOnly: Boolean;
     FLastNoJunkPos: Integer;
     FLastNoJunkLen: Integer;
@@ -268,6 +269,7 @@ type
     procedure ClassType; virtual;
     procedure ClassTypeEnd; virtual;
     procedure ClassVisibility; virtual;
+    procedure Comment(Sym: TptTokenKind); virtual;
     procedure CompoundStatement; virtual;
     procedure ConstantColon; virtual;
     procedure ConstantDeclaration; virtual;
@@ -559,6 +561,7 @@ type
     procedure RemoveDefine(const ADefine: string);
     function IsDefined(const ADefine: string): Boolean;
 
+    property IncludeComments: Boolean read FIncludeComments write FIncludeComments;
     property InterfaceOnly: Boolean read FInterfaceOnly write FInterfaceOnly;
     property Lexer: TmwPasLex read FLexer;
     property OnMessage: TMessageEvent read FOnMessage write FOnMessage;
@@ -703,6 +706,7 @@ begin
   FLexer.OnIfDirect := HandlePtIfDirect;
   FLexer.OnIfEndDirect := HandlePtIfEndDirect;
   FLexer.OnElseIfDirect := HandlePtElseIfDirect;
+  FIncludeComments := True;
 end;
 
 destructor TmwSimplePasPar.Destroy;
@@ -862,7 +866,15 @@ end;
 
 procedure TmwSimplePasPar.NextToken;
 begin
-  FLexer.NextNoJunk;
+  if FIncludeComments then
+    repeat
+      if FLexer.TokenID in [ptAnsiComment, ptBorComment, ptSlashesComment] then
+        Comment(FLexer.TokenID)
+      else
+        FLexer.Next;
+    until not FLexer.IsJunk
+  else
+    FLexer.NextNoJunk;
 end;
 
 procedure TmwSimplePasPar.NilToken;
@@ -5007,6 +5019,11 @@ begin
   begin
     NextToken;
   end;
+end;
+
+procedure TmwSimplePasPar.Comment(Sym: TptTokenKind);
+begin
+  FLexer.Next;
 end;
 
 procedure TmwSimplePasPar.CompoundStatement;

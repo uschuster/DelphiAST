@@ -73,6 +73,7 @@ type
     procedure ClassProperty; override;
     procedure ClassReferenceType; override;
     procedure ClassType; override;
+    procedure Comment(Sym: TptTokenKind); override;
     procedure ConstParameter; override;
     procedure ConstantDeclaration; override;
     procedure ConstantExpression; override;
@@ -586,6 +587,23 @@ procedure TPasSyntaxTreeBuilder.ConstructorName;
 begin
   FStack.Peek.SetAttribute('constructor', 'true');
   FStack.Peek.SetAttribute('name', Lexer.Token);
+  inherited;
+end;
+
+procedure TPasSyntaxTreeBuilder.Comment(Sym: TptTokenKind);
+var
+  Node: TSyntaxNode;
+  CommentType: string;
+begin
+  Node := FStack.Peek.AddChild('comment');
+  Node.SetAttribute(sVALUE, Lexer.Token);
+  case Sym of
+    ptAnsiComment: CommentType := 'Ansi';
+    ptBorComment: CommentType := 'Borland';
+    ptSlashesComment: CommentType := 'Slashes';
+  end;
+  Node.SetAttribute(sTYPE, CommentType);
+  Node.SetPositionAttributes(Lexer.PosXY);
   inherited;
 end;
 
