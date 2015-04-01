@@ -54,6 +54,7 @@ type
     procedure AddressOp; override;
     procedure AlignmentParameter; override;
     procedure AnonymousMethod; override;
+    procedure AnsiComment; override;
     procedure ArrayBounds; override;
     procedure ArrayConstant; override;
     procedure ArrayDimension; override;
@@ -61,6 +62,7 @@ type
     procedure AsOp; override;
     procedure AssignOp; override;
     procedure AtExpression; override;
+    procedure BorComment; override;
     procedure CaseElseStatement; override;
     procedure CaseLabel; override;
     procedure CaseLabelList; override;
@@ -73,7 +75,6 @@ type
     procedure ClassProperty; override;
     procedure ClassReferenceType; override;
     procedure ClassType; override;
-    procedure Comment(Sym: TptTokenKind); override;
     procedure ConstParameter; override;
     procedure ConstantDeclaration; override;
     procedure ConstantExpression; override;
@@ -151,6 +152,7 @@ type
     procedure SetElement; override;
     procedure SimpleStatement; override;
     procedure SimpleType; override;
+    procedure SlashesComment; override;
     procedure StatementList; override;
     procedure StringConst; override;
     procedure StringConstSimple; override;
@@ -256,6 +258,18 @@ begin
   finally
     FStack.Pop;
   end;
+end;
+
+procedure TPasSyntaxTreeBuilder.AnsiComment;
+var
+  Node: TSyntaxNode;
+begin
+  Node := FStack.Peek.AddChild('comment');
+  Node.SetAttribute(sVALUE, Lexer.Token);
+  Node.SetAttribute(sTYPE, 'Ansi');
+  Node.SetPositionAttributes(Lexer.PosXY, 'begin_line', 'begin_col');
+  Node.SetPositionAttributes(Lexer.PosEndXY, 'end_line', 'end_col');
+  inherited;
 end;
 
 procedure TPasSyntaxTreeBuilder.ArrayBounds;
@@ -372,6 +386,18 @@ begin
   finally
     FStack.Pop;
   end;
+end;
+
+procedure TPasSyntaxTreeBuilder.BorComment;
+var
+  Node: TSyntaxNode;
+begin
+  Node := FStack.Peek.AddChild('comment');
+  Node.SetAttribute(sVALUE, Lexer.Token);
+  Node.SetAttribute(sTYPE, 'Borland');
+  Node.SetPositionAttributes(Lexer.PosXY, 'begin_line', 'begin_col');
+  Node.SetPositionAttributes(Lexer.PosEndXY, 'end_line', 'end_col');
+  inherited;
 end;
 
 procedure TPasSyntaxTreeBuilder.BuildExpressionTree(
@@ -587,23 +613,6 @@ procedure TPasSyntaxTreeBuilder.ConstructorName;
 begin
   FStack.Peek.SetAttribute('constructor', 'true');
   FStack.Peek.SetAttribute('name', Lexer.Token);
-  inherited;
-end;
-
-procedure TPasSyntaxTreeBuilder.Comment(Sym: TptTokenKind);
-var
-  Node: TSyntaxNode;
-  CommentType: string;
-begin
-  Node := FStack.Peek.AddChild('comment');
-  Node.SetAttribute(sVALUE, Lexer.Token);
-  case Sym of
-    ptAnsiComment: CommentType := 'Ansi';
-    ptBorComment: CommentType := 'Borland';
-    ptSlashesComment: CommentType := 'Slashes';
-  end;
-  Node.SetAttribute(sTYPE, CommentType);
-  Node.SetPositionAttributes(Lexer.PosXY);
   inherited;
 end;
 
@@ -1603,6 +1612,17 @@ begin
   finally
     FStack.Pop;
   end;
+end;
+
+procedure TPasSyntaxTreeBuilder.SlashesComment;
+var
+  Node: TSyntaxNode;
+begin
+  Node := FStack.Peek.AddChild('comment');
+  Node.SetAttribute(sVALUE, Lexer.Token);
+  Node.SetAttribute(sTYPE, 'Slashes');
+  Node.SetPositionAttributes(Lexer.PosXY);
+  inherited;
 end;
 
 procedure TPasSyntaxTreeBuilder.StatementList;

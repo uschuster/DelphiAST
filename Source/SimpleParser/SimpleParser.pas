@@ -238,6 +238,7 @@ type
     procedure AncestorId; virtual;
     procedure AnonymousMethod; virtual;
     procedure AnonymousMethodType; virtual;
+    procedure AnsiComment; virtual;
     procedure ArrayConstant; virtual;
     procedure ArrayBounds; virtual;
     procedure ArrayDimension; virtual;
@@ -246,6 +247,7 @@ type
     procedure AssignOp; virtual;
     procedure AtExpression; virtual;
     procedure Block; virtual;
+    procedure BorComment; virtual;
     procedure CaseElseStatement; virtual;
     procedure CaseLabel; virtual;
     procedure CaseLabelList; virtual;
@@ -269,7 +271,6 @@ type
     procedure ClassType; virtual;
     procedure ClassTypeEnd; virtual;
     procedure ClassVisibility; virtual;
-    procedure Comment(Sym: TptTokenKind); virtual;
     procedure CompoundStatement; virtual;
     procedure ConstantColon; virtual;
     procedure ConstantDeclaration; virtual;
@@ -453,6 +454,7 @@ type
     procedure SkipSpace; virtual;
     procedure SkipCRLFco; virtual;
     procedure SkipCRLF; virtual;
+    procedure SlashesComment; virtual;
     procedure Statement; virtual;
     procedure StatementList; virtual;
     procedure StorageExpression; virtual;
@@ -868,10 +870,13 @@ procedure TmwSimplePasPar.NextToken;
 begin
   if FIncludeComments then
     repeat
-      if FLexer.TokenID in [ptAnsiComment, ptBorComment, ptSlashesComment] then
-        Comment(FLexer.TokenID)
-      else
-        FLexer.Next;
+      case FLexer.TokenID of
+        ptAnsiComment: AnsiComment;
+        ptBorComment: BorComment;
+        ptSlashesComment: SlashesComment;
+        else
+          FLexer.Next;
+      end;
     until not FLexer.IsJunk
   else
     FLexer.NextNoJunk;
@@ -1239,6 +1244,11 @@ begin
       CompoundStatement;
     end;
   end;
+end;
+
+procedure TmwSimplePasPar.BorComment;
+begin
+  FLexer.Next;
 end;
 
 procedure TmwSimplePasPar.DeclarationSection;
@@ -5021,11 +5031,6 @@ begin
   end;
 end;
 
-procedure TmwSimplePasPar.Comment(Sym: TptTokenKind);
-begin
-  FLexer.Next;
-end;
-
 procedure TmwSimplePasPar.CompoundStatement;
 begin
   Expected(ptBegin);
@@ -5263,6 +5268,11 @@ begin
     Lexer.Next;
 end;
 
+procedure TmwSimplePasPar.SlashesComment;
+begin
+  FLexer.Next;
+end;
+
 procedure TmwSimplePasPar.SkipCRLFco;
 begin
   Expected(ptCRLFCo);
@@ -5426,6 +5436,11 @@ begin
         ReturnType;
       end;
   end;
+end;
+
+procedure TmwSimplePasPar.AnsiComment;
+begin
+  FLexer.Next;
 end;
 
 procedure TmwSimplePasPar.AddDefine(const ADefine: string);

@@ -103,6 +103,8 @@ type
     FDefineStack: Integer;
     FTopDefineRec: PDefineRec;
     FUseDefines: Boolean;
+    FStartLinePos: Integer;
+    FStartLineNumber: Integer;
 
     function KeyHash: Integer;
     function KeyComp(const aKey: string): Boolean;
@@ -200,6 +202,7 @@ type
     function AltFunc: TptTokenKind;
     procedure InitIdent;
     function GetPosXY: TTokenPoint;
+    function GetPosEndXY: TTokenPoint;
     function IdentKind: TptTokenKind;
     procedure SetRunPos(Value: Integer);
     procedure MakeMethodTables;
@@ -307,6 +310,7 @@ type
     property Line: string write SetLine;
     property Origin: PChar read FOrigin write SetOrigin;
     property PosXY: TTokenPoint read GetPosXY;
+    property PosEndXY: TTokenPoint read GetPosEndXY;
     property RunPos: Integer read Run write SetRunPos;
     property Token: string read GetToken;
     property TokenLen: Integer read GetTokenLen;
@@ -455,7 +459,21 @@ end;
 
 function TmwBasePasLex.GetPosXY: TTokenPoint;
 begin
-  Result.X := FTokenPos - FLinePos + 1;
+  if FTokenPos >= FLinePos then
+  begin
+    Result.X := FTokenPos - FLinePos + 1;
+    Result.Y := FLineNumber + 1;
+  end
+  else
+  begin
+    Result.X := FTokenPos - FStartLinePos + 1;
+    Result.Y := FStartLineNumber + 1;
+  end;
+end;
+
+function TmwBasePasLex.GetPosEndXY: TTokenPoint;
+begin
+  Result.X := Run - FLinePos;
   Result.Y := FLineNumber + 1;
 end;
 
@@ -2091,6 +2109,8 @@ procedure TmwBasePasLex.Next;
 begin
   FExID := ptUnKnown;
   FTokenPos := Run;
+  FStartLinePos := FLinePos;
+  FStartLineNumber := FLineNumber;
   case FCommentState of
     csNo: DoProcTable(FOrigin[Run]);
     csBor: BorProc;
@@ -2307,6 +2327,8 @@ begin
   FLineNumber := 0;
   FLinePos := 0;
   Run := 0;
+  FStartLineNumber := 0;
+  FStartLinePos := 0;
 end;
 
 procedure TmwBasePasLex.InitFrom(ALexer: TmwBasePasLex);
@@ -2316,6 +2338,8 @@ begin
   FLineNumber := ALexer.FLineNumber;
   FLinePos := ALexer.FLinePos;
   Run := ALexer.Run;
+  FStartLineNumber := ALexer.FStartLineNumber;
+  FStartLinePos := ALexer.FStartLinePos;
   CloneDefinesFrom(ALexer);
 end;
 
@@ -2485,6 +2509,8 @@ begin
   FLineNumber := 0;
   FLinePos := 0;
   Run := 0;
+  FStartLineNumber := 0;
+  FStartLinePos := 0;
 end;
 
 procedure TmwBasePasLex.SetCommentState(const Value: Pointer);
