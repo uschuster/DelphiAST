@@ -3,7 +3,7 @@ unit DelphiAST.Classes;
 interface
 
 uses
-  Generics.Collections, SimpleParser.Lexer.Types;
+  Generics.Defaults, Generics.Collections, SimpleParser.Lexer.Types;
 
 type
   TSyntaxNode = class
@@ -46,6 +46,50 @@ type
     class procedure NodeListToTree(Expr: TList<TSyntaxNode>; Root: TSyntaxNode); static;
     class function PrepareExpr(ExprNodes: TList<TSyntaxNode>): TObjectList<TSyntaxNode>; static;
     class procedure RawNodeListToTree(RawParentNode: TSyntaxNode; RawNodeList: TList<TSyntaxNode>; NewRoot: TSyntaxNode); static;
+  end;
+
+  TCommentKind = (ckAnsi, ckBorland, ckSlashes);
+
+  TComment = class
+  private
+    FBeginPos: TTokenPoint;
+    FEndPos: TTokenPoint;
+    FKind: TCommentKind;
+    FValue: string;
+  public
+    constructor Create(const AValue: string; AKind: TCommentKind; ABeginPos, AEndPos: TTokenPoint);
+    property BeginPos: TTokenPoint read FBeginPos;
+    property EndPos: TTokenPoint read FEndPos;
+    property Kind: TCommentKind read FKind;
+    property Value: string read FValue;
+  end;
+
+  TComments = class
+  private
+    type
+      TBeginComparer = class(TInterfacedObject, IComparer<TComment>)
+        function Compare(const Left, Right: TComment): Integer;
+      end;
+    var
+    FItems: TObjectList<TComment>;
+    FSortRequired: Boolean;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    function Add(const AValue: string; AKind: TCommentKind; ABeginPos, AEndPos: TTokenPoint): TComment;
+    procedure Clear;
+    function Get(ABeginPos, AEndPos: TTokenPoint; AItems: TList<TComment>): Integer;
+  end;
+
+  TASTContext = class
+  private
+    FComments: TComments;
+    FSyntaxNode: TSyntaxNode;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    property Comments: TComments read FComments;
+    property SyntaxNode: TSyntaxNode read FSyntaxNode;
   end;
 
 implementation
@@ -423,6 +467,131 @@ end;
 function TSyntaxNode.HasAttribute(const Key: string): boolean;
 begin
   result := FAttributes.ContainsKey(key);
+end;
+
+{ TComment }
+
+constructor TComment.Create(const AValue: string; AKind: TCommentKind; ABeginPos, AEndPos: TTokenPoint);
+begin
+  inherited Create;
+  FValue := AValue;
+  FKind := AKind;
+  FBeginPos := ABeginPos;
+  FEndPos := AEndPos;
+end;
+
+{ TComments.TBeginComparer }
+
+function TComments.TBeginComparer.Compare(const Left, Right: TComment): Integer;
+begin
+  if Left.BeginPos > Right.BeginPos then
+    Result := 1
+  else
+  if Left.BeginPos < Right.BeginPos then
+    Result := -1
+  else
+    Result := 0;
+end;
+
+{ TComments }
+
+constructor TComments.Create;
+begin
+  inherited Create;
+  FItems := TObjectList<TComment>.Create;
+  FSortRequired := False;
+end;
+
+destructor TComments.Destroy;
+begin
+  FItems.Free;
+  inherited Destroy;
+end;
+
+function TComments.Add(const AValue: string; AKind: TCommentKind; ABeginPos, AEndPos: TTokenPoint): TComment;
+begin
+  FItems.Add(TComment.Create(AValue, AKind, ABeginPos, AEndPos));
+  Result := FItems.Last;
+  FSortRequired := True;
+end;
+
+procedure TComments.Clear;
+begin
+  FItems.Clear;
+  FSortRequired := False;
+end;
+
+function TComments.Get(ABeginPos, AEndPos: TTokenPoint; AItems: TList<TComment>): Integer;
+var
+  I, FoundIndex, RangeBegin, RangeEnd: Integer;
+  TempComment: TComment;
+begin
+  Result := 0;
+  if FItems.Count > 0 then
+  begin
+    if FSortRequired then
+    begin
+      FItems.Sort(TBeginComparer.Create);
+      FSortRequired := False;
+    end;
+    if FItems.Count < 10 then
+    begin
+      for I := 0 to FItems.Count - 1 do
+        if (FItems[I].BeginPos <= AEndPos) and (FItems[I].EndPos >= ABeginPos) then
+        begin
+          AItems.Add(FItems[I]);
+          Inc(Result);
+        end;
+    end
+    else
+    begin
+      TempComment := TComment.Create('', ckAnsi, ABeginPos, AEndPos);
+      try
+        FItems.BinarySearch(TempComment, FoundIndex, TBeginComparer.Create);
+      finally
+        TempComment.Free;
+      end;
+      if (FoundIndex >= 0) and (FoundIndex < FItems.Count) then
+      begin
+        I := FoundIndex;
+        RangeBegin := -1;
+        RangeEnd := -1;
+        while (I >= 0) and (FItems[I].BeginPos <= AEndPos) and (FItems[I].EndPos >= ABeginPos) do
+        begin
+          RangeBegin := I;
+          Dec(I);
+        end;
+        I := FoundIndex;
+        while (I < FItems.Count) and (FItems[I].BeginPos <= AEndPos) and (FItems[I].EndPos >= ABeginPos) do
+        begin
+          RangeEnd := I;
+          Inc(I);
+        end;
+        if (RangeBegin >= 0) and (RangeEnd >= RangeBegin) and (RangeEnd < FItems.Count) then
+          for I := RangeBegin to RangeEnd do
+          begin
+            AItems.Add(FItems[I]);
+            Inc(Result);
+          end;
+      end;
+    end;
+  end;
+end;
+
+{ TASTContext }
+
+constructor TASTContext.Create;
+begin
+  inherited Create;
+  FComments := TComments.Create;
+  FSyntaxNode := TSyntaxNode.Create(sUNIT);
+end;
+
+destructor TASTContext.Destroy;
+begin
+  FSyntaxNode.Free;
+  FComments.Free;
+  inherited Destroy;
 end;
 
 end.

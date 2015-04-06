@@ -39,6 +39,10 @@ type
   TTokenPoint = packed record
     X: Integer;
     Y: Integer;
+    class operator GreaterThan(const Left, Right: TTokenPoint): Boolean;
+    class operator LessThan(const Left, Right: TTokenPoint): Boolean;
+    class operator GreaterThanOrEqual(const Left, Right: TTokenPoint): Boolean;
+    class operator LessThanOrEqual(const Left, Right: TTokenPoint): Boolean;
   end;
 
   TptTokenKind = (
@@ -276,6 +280,30 @@ function ptTokenName(Value: TptTokenKind): string;
 function IsTokenIDJunk(const aTokenID: TptTokenKind): Boolean;
 
 implementation
+
+{ TTokenPoint }
+
+class operator TTokenPoint.GreaterThan(const Left, Right: TTokenPoint): Boolean;
+begin
+  Result := (Left.Y > Right.Y) or ((Left.Y = Right.Y) and (Left.X > Right.X))
+end;
+
+class operator TTokenPoint.GreaterThanOrEqual(const Left, Right: TTokenPoint): Boolean;
+begin
+  Result := (Left.Y > Right.Y) or ((Left.Y = Right.Y) and (Left.X > Right.X)) or
+    ((Left.X = Right.X) and (Left.Y = Right.Y));
+end;
+
+class operator TTokenPoint.LessThan(const Left, Right: TTokenPoint): Boolean;
+begin
+  Result := (Left.Y < Right.Y) or ((Left.Y = Right.Y) and (Left.X < Right.X))
+end;
+
+class operator TTokenPoint.LessThanOrEqual(const Left, Right: TTokenPoint): Boolean;
+begin
+  Result := (Left.Y < Right.Y) or ((Left.Y = Right.Y) and (Left.X < Right.X)) or
+    ((Left.X = Right.X) and (Left.Y = Right.Y));
+end;
 
 function TokenName(Value: TptTokenKind): string;
 begin

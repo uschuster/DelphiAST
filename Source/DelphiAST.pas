@@ -44,8 +44,10 @@ type
   private type
     TExpressionMethod = reference to procedure;
   private
+    FComments: TComments;
     FStack: TNodeStack;
     procedure BuildExpressionTree(ExpressionMethod: TExpressionMethod);
+    procedure DoAddComment(const AValue: string; AKind: TCommentKind; ABeginPos, AEndPos: TTokenPoint);
     procedure ParserMessage(Sender: TObject; const Typ: TMessageEventType; const Msg: string; X, Y: Integer);
     function NodeListToString(NamesNode: TSyntaxNode): string;
   protected
@@ -198,6 +200,7 @@ type
     destructor Destroy; override;
 
     function Run(SourceStream: TStream): TSyntaxNode; reintroduce; overload;
+    function RunEx(SourceStream: TStream): TASTContext;
     class function Run(const FileName: string): TSyntaxNode; reintroduce; overload; static;
   end;
 
@@ -261,14 +264,8 @@ begin
 end;
 
 procedure TPasSyntaxTreeBuilder.AnsiComment;
-var
-  Node: TSyntaxNode;
 begin
-  Node := FStack.Peek.AddChild('comment');
-  Node.SetAttribute(sVALUE, Lexer.Token);
-  Node.SetAttribute(sTYPE, 'Ansi');
-  Node.SetPositionAttributes(Lexer.PosXY, 'begin_line', 'begin_col');
-  Node.SetPositionAttributes(Lexer.PosEndXY, 'end_line', 'end_col');
+  DoAddComment(Lexer.Token, ckAnsi, Lexer.PosXY, Lexer.PosEndXY);
   inherited;
 end;
 
@@ -389,14 +386,8 @@ begin
 end;
 
 procedure TPasSyntaxTreeBuilder.BorComment;
-var
-  Node: TSyntaxNode;
 begin
-  Node := FStack.Peek.AddChild('comment');
-  Node.SetAttribute(sVALUE, Lexer.Token);
-  Node.SetAttribute(sTYPE, 'Borland');
-  Node.SetPositionAttributes(Lexer.PosXY, 'begin_line', 'begin_col');
-  Node.SetPositionAttributes(Lexer.PosEndXY, 'end_line', 'end_col');
+  DoAddComment(Lexer.Token, ckBorland, Lexer.PosXY, Lexer.PosEndXY);
   inherited;
 end;
 
@@ -746,6 +737,12 @@ procedure TPasSyntaxTreeBuilder.DirectiveBinding;
 begin
   FStack.Peek.SetAttribute(Lexer.Token, 'true');
   inherited;
+end;
+
+procedure TPasSyntaxTreeBuilder.DoAddComment(const AValue: string; AKind: TCommentKind; ABeginPos, AEndPos: TTokenPoint);
+begin
+  if Assigned(FComments) then
+    FComments.Add(AValue, AKind, ABeginPos, AEndPos);
 end;
 
 procedure TPasSyntaxTreeBuilder.DotOp;
@@ -1495,6 +1492,28 @@ begin
   Assert(FStack.Count = 0);
 end;
 
+function TPasSyntaxTreeBuilder.RunEx(SourceStream: TStream): TASTContext;
+begin
+  Result := TASTContext.Create;
+  try
+    FStack.Clear;
+    FStack.Push(Result.SyntaxNode);
+    try
+      Self.OnMessage := ParserMessage;
+      FComments := Result.Comments;
+      inherited Run('', SourceStream);
+    finally
+      FComments := nil;
+      FStack.Pop;
+    end;
+  except
+    FreeAndNil(Result);
+    raise;
+  end;
+
+  Assert(FStack.Count = 0);
+end;
+
 function TPasSyntaxTreeBuilder.NodeListToString(NamesNode: TSyntaxNode): string;
 var
   NamePartNode: TSyntaxNode;
@@ -1615,13 +1634,8 @@ begin
 end;
 
 procedure TPasSyntaxTreeBuilder.SlashesComment;
-var
-  Node: TSyntaxNode;
 begin
-  Node := FStack.Peek.AddChild('comment');
-  Node.SetAttribute(sVALUE, Lexer.Token);
-  Node.SetAttribute(sTYPE, 'Slashes');
-  Node.SetPositionAttributes(Lexer.PosXY);
+  DoAddComment(Lexer.Token, ckSlashes, Lexer.PosXY, Lexer.PosEndXY);
   inherited;
 end;
 
