@@ -328,6 +328,7 @@ type
     procedure FieldNameList; virtual;
     procedure FieldName; virtual;
     procedure FileType; virtual;
+    procedure FinalizationSection; virtual;
     procedure FinallyBlock; virtual;
     procedure FormalParameterList; virtual;
     procedure FormalParameterSection; virtual;
@@ -552,7 +553,7 @@ type
     property TokenID: TptTokenKind read GetTokenID;
     property InRound: Boolean read GetInRound;
   public
-    constructor Create;
+    constructor Create; virtual;
     destructor Destroy; override;
     procedure SynError(Error: TmwParseError); virtual;
     procedure Run(const UnitName: string; SourceStream: TStream); virtual;
@@ -1119,12 +1120,12 @@ procedure TmwSimplePasPar.UnitFile;
 begin
   Expected(ptUnit);
   UnitName;
-
-  while ExID in [ptDeprecated, ptLibrary, ptPlatform] do
+  while ExID in [ptDeprecated, ptLibrary, ptPlatform, ptExperimental] do
     case ExID of
       ptDeprecated: DirectiveDeprecated;
       ptLibrary: DirectiveLibrary;
       ptPlatform: DirectivePlatform;
+      ptExperimental: NextToken;
     end;
 
   Semicolon;
@@ -1132,7 +1133,24 @@ begin
   if not InterfaceOnly then
   begin
     ImplementationSection;
-    InitializationSection;
+    case TokenID of
+      ptInitialization:
+        begin
+          InitializationSection;
+          if TokenID = ptFinalization then
+            FinalizationSection;
+          Expected(ptEnd);
+        end;
+      ptBegin:
+        begin
+          CompoundStatement;
+        end;
+      ptEnd:
+        begin
+          NextToken;
+        end;
+    end;
+
     Expected(ptPoint);
   end;
 end;
@@ -1538,6 +1556,9 @@ end;
 
 procedure TmwSimplePasPar.ClassMethodHeading;
 begin
+  if TokenID = ptClass then
+    ClassClass;
+
   InitAhead;
   AheadParse.NextToken;
   AheadParse.FunctionProcedureName;
@@ -3251,6 +3272,12 @@ begin
   end;
 end;
 
+procedure TmwSimplePasPar.FinalizationSection;
+begin
+  Expected(ptFinalization);
+  StatementList;
+end;
+
 procedure TmwSimplePasPar.FinallyBlock;
 begin
   StatementList;
@@ -3810,16 +3837,27 @@ begin
 end;
 
 procedure TmwSimplePasPar.ClassMethodOrProperty;
+var
+  CurToken: TptTokenKind;
 begin
-  if TokenID = ptClass
-    then ClassClass;
-  case TokenID of
+  if TokenID = ptClass then
+  begin
+    InitAhead;
+    AheadParse.NextToken;
+    CurToken := AheadParse.TokenID;
+  end else
+    CurToken := TokenID;
+
+  case CurToken of
     ptProperty:
       begin
         ClassProperty;
       end;
     ptVar, ptThreadVar:
       begin
+        if TokenID = ptClass then
+          ClassClass;
+
         NextToken;
         while (TokenID = ptIdentifier) and (ExID = ptUnknown) do
         begin
@@ -3829,6 +3867,9 @@ begin
       end;
     ptConst:
       begin
+        if TokenID = ptClass then
+          ClassClass;
+
         NextToken;
         while (TokenID = ptIdentifier) and (ExID = ptUnknown) do
         begin
@@ -3845,6 +3886,9 @@ end;
 
 procedure TmwSimplePasPar.ClassProperty;
 begin
+  if TokenID = ptClass then
+    ClassClass;
+
   Expected(ptProperty);
   PropertyName;
   case TokenID of
@@ -4138,10 +4182,6 @@ end;
 
 procedure TmwSimplePasPar.StructuredType;
 begin
-  if TokenID = ptPacked then
-  begin
-    NextToken;
-  end;
   case TokenID of
     ptArray:
       begin
@@ -4404,6 +4444,8 @@ begin
       end;
     ptArray, ptFile, ptPacked, ptRecord, ptSet:
       begin
+        if TokenID = ptPacked then
+          NextToken;
         StructuredType;
       end;
     ptFunction, ptProcedure:
@@ -4773,8 +4815,11 @@ begin
   begin
     FormalParameterList;
   end;
-  Expected(ptColon);
-  ReturnType;
+  if TokenID = ptColon then
+  begin
+    Expected(ptColon);
+    ReturnType;
+  end;
 end;
 
 procedure TmwSimplePasPar.ProcedureHeading;
@@ -4905,13 +4950,13 @@ procedure TmwSimplePasPar.TypeParamList;
 begin
   if TokenId = ptSquareOpen then
     AttributeSection;
-  Identifier;
+  TypeSimple;
   while TokenId = ptComma do
   begin
     NextToken;
     if TokenId = ptSquareOpen then
       AttributeSection;
-    Identifier;
+    TypeSimple;
   end;
 end;
 
@@ -5091,31 +5136,8 @@ end;
 
 procedure TmwSimplePasPar.InitializationSection;
 begin
-  case TokenID of
-    ptInitialization:
-      begin
-        NextToken;
-        StatementList;
-        if TokenID = ptFinalization then
-        begin
-          NextToken;
-          StatementList;
-        end;
-        Expected(ptEnd);
-      end;
-    ptBegin:
-      begin
-        CompoundStatement;
-      end;
-    ptEnd:
-      begin
-        NextToken;
-      end;
-  else
-    begin
-      SynError(InvalidInitializationSection);
-    end;
-  end;
+  Expected(ptInitialization);
+  StatementList;
 end;
 
 procedure TmwSimplePasPar.ImplementationSection;
@@ -5325,12 +5347,7 @@ procedure TmwSimplePasPar.ClassTypeEnd;
 begin
   case ExID of
     ptExperimental: NextToken;
-    ptDeprecated:
-      begin
-        NextToken;
-        if TokenID = ptStringConst then
-          NextToken;
-      end;
+    ptDeprecated: DirectiveDeprecated;
   end;
 end;
 
