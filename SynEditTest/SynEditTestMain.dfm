@@ -30,6 +30,15 @@ object Form9: TForm9
     Align = alTop
     BevelOuter = bvNone
     TabOrder = 0
+    object btnOpen: TButton
+      Left = 4
+      Top = 4
+      Width = 133
+      Height = 25
+      Caption = 'Open Delphi Source File'
+      TabOrder = 0
+      OnClick = btnOpenClick
+    end
   end
   object SynEdit1: TSynEdit
     Left = 0
@@ -92,5 +101,11 @@ object Form9: TForm9
     Options.Visible = False
     Left = 176
     Top = 144
+  end
+  object OpenDialog: TOpenDialog
+    Filter = 'Delphi Unit|*.pas|Delphi Package|*.dpk|Delphi Project|*.dpr'
+    Options = [ofHideReadOnly, ofPathMustExist, ofFileMustExist, ofEnableSizing]
+    Left = 272
+    Top = 96
   end
 end

@@ -5,7 +5,8 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, SynEdit,
-  SynEditHighlighter, SynHighlighterPas, DelphiASTSynProxy, DelphiAST.Classes;
+  SynEditHighlighter, SynHighlighterPas, DelphiASTSynProxy, DelphiAST.Classes,
+  Vcl.StdCtrls;
 
 type
   TForm9 = class(TForm)
@@ -13,8 +14,11 @@ type
     SynEdit1: TSynEdit;
     SynPasSyn1: TSynPasSyn;
     PaintBox1: TPaintBox;
+    btnOpen: TButton;
+    OpenDialog: TOpenDialog;
     procedure FormCreate(Sender: TObject);
     procedure PaintBox1Paint(Sender: TObject);
+    procedure btnOpenClick(Sender: TObject);
   private
     { Private declarations }
     FLegendBottomY: Integer;
@@ -38,6 +42,16 @@ uses
   DelphiAST;
 
 {$R *.dfm}
+
+procedure TForm9.btnOpenClick(Sender: TObject);
+begin
+  if OpenDialog.Execute then
+  begin
+    SynEdit1.Lines.LoadFromFile(OpenDialog.FileName);
+    UpdateNode;
+    UpdateRanges;
+  end;
+end;
 
 procedure TForm9.DrawLegend(ACanvas: TCanvas; ARect: TRect);
 var
