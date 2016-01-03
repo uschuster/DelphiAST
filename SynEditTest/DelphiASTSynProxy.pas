@@ -156,6 +156,8 @@ type
     FBlockRanges: TBlockRanges;
     procedure AddHighlightChar(ALine, ACharIndex: Integer; AKind: THighlightKind);
     procedure SetInternalHighlighter(const Value: TSynCustomHighlighter);
+    function GetLevelColor(AIndex: Integer): TColor;
+    function GetLevelColorCount: Integer;
   protected
     function GetDefaultAttribute(Index: Integer): TSynHighlighterAttributes; override;
   public
@@ -180,6 +182,8 @@ type
     procedure Next; override;
     //procedure UpdateHighlight(ACompressedDiff: TJVCSCompressedDiff);
     property BlockRanges: TBlockRanges read FBlockRanges;
+    property LevelColorCount: Integer read GetLevelColorCount;
+    property LevelColors[AIndex: Integer]: TColor read GetLevelColor;
   end;
 
 implementation
@@ -522,6 +526,16 @@ function TJVCSCompressedDiffSynProxyHighlighter.GetExpandedTokenPos: Integer;
 begin
   Result := GetTokenPos;
 end;
+function TJVCSCompressedDiffSynProxyHighlighter.GetLevelColor(AIndex: Integer): TColor;
+begin
+  Result := FLevels[AIndex][0].Background;
+end;
+
+function TJVCSCompressedDiffSynProxyHighlighter.GetLevelColorCount: Integer;
+begin
+  Result := Length(FLevels);
+end;
+
 {$ENDIF UNISYNEDIT}
 
 function TJVCSCompressedDiffSynProxyHighlighter.GetToken: string;

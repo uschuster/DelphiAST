@@ -2,7 +2,7 @@ object Form9: TForm9
   Left = 0
   Top = 0
   Caption = 'Form9'
-  ClientHeight = 484
+  ClientHeight = 659
   ClientWidth = 760
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -14,6 +14,14 @@ object Form9: TForm9
   OnCreate = FormCreate
   PixelsPerInch = 96
   TextHeight = 13
+  object PaintBox1: TPaintBox
+    Left = 0
+    Top = 484
+    Width = 760
+    Height = 175
+    Align = alBottom
+    OnPaint = PaintBox1Paint
+  end
   object Panel1: TPanel
     Left = 0
     Top = 0

@@ -12,13 +12,17 @@ type
     Panel1: TPanel;
     SynEdit1: TSynEdit;
     SynPasSyn1: TSynPasSyn;
+    PaintBox1: TPaintBox;
     procedure FormCreate(Sender: TObject);
+    procedure PaintBox1Paint(Sender: TObject);
   private
     { Private declarations }
+    FLegendBottomY: Integer;
     FHighlighter: TJVCSCompressedDiffSynProxyHighlighter;
     FNode: TSyntaxNode;
     FSampleMode: Boolean;
     procedure AddSampleRanges;
+    procedure DrawLegend(ACanvas: TCanvas; ARect: TRect);
     procedure UpdateNode;
     procedure UpdateRanges;
   public
@@ -35,6 +39,30 @@ uses
 
 {$R *.dfm}
 
+procedure TForm9.DrawLegend(ACanvas: TCanvas; ARect: TRect);
+var
+  I, Y, TextX: Integer;
+  ColorRect: TRect;
+  R: TSize;
+begin
+  ACanvas.Brush.Color := clWindow;
+  ACanvas.FillRect(ARect);
+  R := ACanvas.TextExtent('Level 0');
+  TextX := ARect.Left + 2 + R.cy + 2;
+  Y := ARect.Top + 2;
+  for I := 0 to FHighlighter.LevelColorCount - 1 do
+  begin
+    ColorRect := Rect(ARect.Left + 2, Y, ARect.Top + 2 + R.cy, Y + R.cy);
+    ACanvas.Brush.Color := FHighlighter.LevelColors[I];
+    ACanvas.Brush.Style := bsSolid;
+    ACanvas.Rectangle(ColorRect);
+    ACanvas.Brush.Style := bsClear;
+    ACanvas.TextOut(TextX, Y, Format('Level %d', [I]));
+    Inc(Y, R.cy + 2);
+    FLegendBottomY := Y;
+  end;
+end;
+
 procedure TForm9.FormCreate(Sender: TObject);
 begin
   SynPasSyn1.UseUserSettings(1);
@@ -50,6 +78,12 @@ begin
     UpdateNode;
     UpdateRanges;
   end;
+end;
+
+procedure TForm9.PaintBox1Paint(Sender: TObject);
+begin
+  DrawLegend(PaintBox1.Canvas, Rect(0, 0, PaintBox1.Width, PaintBox1.Height));
+  PaintBox1.Height := FLegendBottomY;
 end;
 
 procedure TForm9.UpdateNode;
