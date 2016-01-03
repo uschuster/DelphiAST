@@ -3,6 +3,9 @@ unit SynEditTestMain;
 interface
 
 uses
+  {$IFDEF WITH_SYNTAX_TREE}
+  DelphiASTSyntaxTreeFrame,
+  {$ENDIF}
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, SynEdit,
   SynEditHighlighter, SynHighlighterPas, DelphiASTSynProxy, DelphiAST.Classes,
@@ -16,6 +19,8 @@ type
     PaintBox1: TPaintBox;
     btnOpen: TButton;
     OpenDialog: TOpenDialog;
+    pnlSyntaxTree: TPanel;
+    splSyntaxTree: TSplitter;
     procedure FormCreate(Sender: TObject);
     procedure PaintBox1Paint(Sender: TObject);
     procedure btnOpenClick(Sender: TObject);
@@ -25,8 +30,14 @@ type
     FHighlighter: TJVCSCompressedDiffSynProxyHighlighter;
     FNode: TSyntaxNode;
     FSampleMode: Boolean;
+    {$IFDEF WITH_SYNTAX_TREE}
+    FSyntaxTreeFrame: TfrmSyntaxTree;
+    {$ENDIF}
     procedure AddSampleRanges;
     procedure DrawLegend(ACanvas: TCanvas; ARect: TRect);
+    {$IFDEF WITH_SYNTAX_TREE}
+    procedure HandleSyntaxTreeGetColor(Sender: TObject; ANode: TSyntaxNode; ALevel: Integer; var AColor: TColor);
+    {$ENDIF}
     procedure UpdateNode;
     procedure UpdateRanges;
   public
@@ -83,6 +94,14 @@ begin
   FHighlighter := TJVCSCompressedDiffSynProxyHighlighter.Create(nil);
   FHighlighter.InternalHighlighter := SynPasSyn1;
   SynEdit1.Highlighter := FHighlighter;
+  {$IFDEF WITH_SYNTAX_TREE}
+  FSyntaxTreeFrame := TfrmSyntaxTree.Create(Self);
+  FSyntaxTreeFrame.Parent := pnlSyntaxTree;
+  FSyntaxTreeFrame.Align := alClient;
+  FSyntaxTreeFrame.OnGetColor := HandleSyntaxTreeGetColor;
+  pnlSyntaxTree.Visible := True;
+  splSyntaxTree.Visible := True;
+  {$ENDIF}
 
   FSampleMode := False;
   if FSampleMode then
@@ -93,6 +112,14 @@ begin
     UpdateRanges;
   end;
 end;
+
+{$IFDEF WITH_SYNTAX_TREE}
+procedure TForm9.HandleSyntaxTreeGetColor(Sender: TObject; ANode: TSyntaxNode; ALevel: Integer; var AColor: TColor);
+begin
+  if ALevel < FHighlighter.LevelColorCount then
+    AColor := FHighlighter.LevelColors[ALevel];
+end;
+{$ENDIF}
 
 procedure TForm9.PaintBox1Paint(Sender: TObject);
 begin
@@ -105,6 +132,9 @@ var
   B: TPasSyntaxTreeBuilder;
   SS: TStringStream;
 begin
+  {$IFDEF WITH_SYNTAX_TREE}
+  FSyntaxTreeFrame.Node := nil;
+  {$ENDIF}
   FreeAndNil(FNode);
   B := TPasSyntaxTreeBuilder.Create;
   try
@@ -118,6 +148,9 @@ begin
   finally
     B.Free;
   end;
+  {$IFDEF WITH_SYNTAX_TREE}
+  FSyntaxTreeFrame.Node := FNode;
+  {$ENDIF}
 end;
 
 procedure TForm9.UpdateRanges;

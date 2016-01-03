@@ -22,6 +22,12 @@ object Form9: TForm9
     Align = alBottom
     OnPaint = PaintBox1Paint
   end
+  object splSyntaxTree: TSplitter
+    Left = 265
+    Top = 41
+    Height = 443
+    Visible = False
+  end
   object Panel1: TPanel
     Left = 0
     Top = 0
@@ -41,9 +47,9 @@ object Form9: TForm9
     end
   end
   object SynEdit1: TSynEdit
-    Left = 0
+    Left = 268
     Top = 41
-    Width = 760
+    Width = 492
     Height = 443
     Align = alClient
     Font.Charset = DEFAULT_CHARSET
@@ -94,6 +100,16 @@ object Form9: TForm9
       ''
       '')
     FontSmoothing = fsmNone
+  end
+  object pnlSyntaxTree: TPanel
+    Left = 0
+    Top = 41
+    Width = 265
+    Height = 443
+    Align = alLeft
+    BevelOuter = bvNone
+    TabOrder = 2
+    Visible = False
   end
   object SynPasSyn1: TSynPasSyn
     Options.AutoDetectEnabled = False
