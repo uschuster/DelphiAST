@@ -58,6 +58,10 @@ object Form9: TForm9
       ''
       '  begin'
       '    begin'
+      '      begin'
+      '        begin'
+      '        end;'
+      '      end;'
       '    end;'
       '  end;'
       ''
@@ -70,6 +74,7 @@ object Form9: TForm9
       'end;'
       ''
       'end.'
+      ''
       '')
     FontSmoothing = fsmNone
   end

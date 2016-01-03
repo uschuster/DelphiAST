@@ -144,7 +144,7 @@ type
     FAttrDeleteChar: TSynHighlighterAttributes;
     FAttrInsertLine: TSynHighlighterAttributes;
     FAttrInsertChar: TSynHighlighterAttributes;
-    FLevels: array [0..3, 0..2] of TSynHighlighterAttributes;
+    FLevels: array [0..7, 0..2] of TSynHighlighterAttributes;
     FKeyAttr: TSynHighlighterAttributes;
     FStringAttri: TSynHighlighterAttributes;
     FHighlightLines: THighlightLines;
@@ -452,13 +452,21 @@ begin
   for I := 0 to 2 do
   begin
     FLevels[0][I] := TSynHighlighterAttributes.Create('Level 0'{$IFDEF UNISYNEDIT}, 'Level 0'{$ENDIF});
-    FLevels[0][I].Background := RGB(255, 224, 224);
+    FLevels[0][I].Background := RGB(224, 192, 192);
     FLevels[1][I] := TSynHighlighterAttributes.Create('Level 1'{$IFDEF UNISYNEDIT}, 'Level 1'{$ENDIF});
-    FLevels[1][I].Background := RGB(224, 255, 224);
+    FLevels[1][I].Background := RGB(255, 208, 208);
     FLevels[2][I] := TSynHighlighterAttributes.Create('Level 2'{$IFDEF UNISYNEDIT}, 'Level 2'{$ENDIF});
-    FLevels[2][I].Background := RGB(224, 224, 255);
+    FLevels[2][I].Background := RGB(192, 224, 192);
     FLevels[3][I] := TSynHighlighterAttributes.Create('Level 3'{$IFDEF UNISYNEDIT}, 'Level 3'{$ENDIF});
-    FLevels[3][I].Background := RGB(224, 255, 255);
+    FLevels[3][I].Background := RGB(208, 255, 208);
+    FLevels[4][I] := TSynHighlighterAttributes.Create('Level 4'{$IFDEF UNISYNEDIT}, 'Level 4'{$ENDIF});
+    FLevels[4][I].Background := RGB(192, 192, 224);
+    FLevels[5][I] := TSynHighlighterAttributes.Create('Level 5'{$IFDEF UNISYNEDIT}, 'Level 5'{$ENDIF});
+    FLevels[5][I].Background := RGB(208, 208, 255);
+    FLevels[6][I] := TSynHighlighterAttributes.Create('Level 6'{$IFDEF UNISYNEDIT}, 'Level 6'{$ENDIF});
+    FLevels[6][I].Background := RGB(224, 224, 192);
+    FLevels[7][I] := TSynHighlighterAttributes.Create('Level 7'{$IFDEF UNISYNEDIT}, 'Level 7'{$ENDIF});
+    FLevels[7][I].Background := RGB(255, 255, 208);
   end;
 
   FTokens := TLineTokens.Create;
