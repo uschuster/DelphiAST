@@ -5,7 +5,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, SynEdit,
-  SynEditHighlighter, SynHighlighterPas, DelphiASTSynProxy;
+  SynEditHighlighter, SynHighlighterPas, DelphiASTSynProxy, DelphiAST.Classes;
 
 type
   TForm9 = class(TForm)
@@ -16,7 +16,11 @@ type
   private
     { Private declarations }
     FHighlighter: TJVCSCompressedDiffSynProxyHighlighter;
+    FNode: TSyntaxNode;
+    FSampleMode: Boolean;
     procedure AddSampleRanges;
+    procedure UpdateNode;
+    procedure UpdateRanges;
   public
     { Public declarations }
   end;
@@ -25,6 +29,9 @@ var
   Form9: TForm9;
 
 implementation
+
+uses
+  DelphiAST;
 
 {$R *.dfm}
 
@@ -35,7 +42,63 @@ begin
   FHighlighter.InternalHighlighter := SynPasSyn1;
   SynEdit1.Highlighter := FHighlighter;
 
-  AddSampleRanges;
+  FSampleMode := False;
+  if FSampleMode then
+    AddSampleRanges
+  else
+  begin
+    UpdateNode;
+    UpdateRanges;
+  end;
+end;
+
+procedure TForm9.UpdateNode;
+var
+  B: TPasSyntaxTreeBuilder;
+  SS: TStringStream;
+begin
+  FreeAndNil(FNode);
+  B := TPasSyntaxTreeBuilder.Create;
+  try
+    B.InitDefinesDefinedByCompiler;
+    SS := TStringStream.Create(SynEdit1.Text);
+    try
+      FNode := B.Run(SS);
+    finally
+      SS.Free;
+    end;
+  finally
+    B.Free;
+  end;
+end;
+
+procedure TForm9.UpdateRanges;
+
+  procedure WalkNodes(ANode: TSyntaxNode; ALevel: Integer = 0);
+  var
+    I: Integer;
+    BR: TBlockRange;
+    C: TCompoundSyntaxNode;
+  begin
+    if ANode is TCompoundSyntaxNode then
+    begin
+      C := TCompoundSyntaxNode(ANode);
+      BR := FHighlighter.BlockRanges.Add;
+      BR.FromCol := C.Col;
+      BR.FromLine := C.Line;
+      BR.ToCol := C.EndCol;
+      BR.ToLine := C.EndLine;
+      BR.Level := ALevel;
+    end;
+
+    for I := Low(ANode.ChildNodes) to High(ANode.ChildNodes) do
+      WalkNodes(ANode.ChildNodes[I], ALevel + 1);
+  end;
+
+begin
+  FHighlighter.BlockRanges.Clear;
+  if Assigned(FNode) then
+    WalkNodes(FNode);
 end;
 
 procedure TForm9.AddSampleRanges;

@@ -132,6 +132,7 @@ type
     constructor Create;
     destructor Destroy; override;
     function Add: TBlockRange;
+    procedure Clear;
     function GetLineLevels(ALine: Integer): TBlockLevels;
     property Count: Integer read GetCount;
     property Items[AIndex: Integer]: TBlockRange read GetItems; default;
@@ -393,6 +394,11 @@ begin
   Result := TBlockRange(FItems.Last);
 end;
 
+procedure TBlockRanges.Clear;
+begin
+  FItems.Clear;
+end;
+
 function TBlockRanges.GetCount: Integer;
 begin
   Result := FItems.Count;
@@ -647,8 +653,11 @@ begin
         SubIndex := 2;
       if Length(L) > I then
       begin
-        Attr := FLevels[L[I]][SubIndex];
-        FTokens.HighlightChars(I, 1, Attr);
+        if L[I] <= High(FLevels) then
+        begin
+          Attr := FLevels[L[I]][SubIndex];
+          FTokens.HighlightChars(I, 1, Attr);
+        end;
       end;
     end;
     FTokens.Combine;
