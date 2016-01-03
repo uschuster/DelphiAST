@@ -141,6 +141,8 @@ Known Issues:
 -----------------------------------------------------------------------------}
 unit SimpleParser;
 
+{$IFDEF FPC}{$MODE DELPHI}{$ENDIF}  
+
 interface
 
 uses
@@ -206,6 +208,9 @@ type
     function GetInRound: Boolean;
     function GetUseDefines: Boolean;
     procedure SetUseDefines(const Value: Boolean);
+    procedure SetIncludeHandler(IncludeHandler: IIncludeHandler);
+    function GetOnComment: TCommentEvent;
+    procedure SetOnComment(const Value: TCommentEvent);
   protected
     procedure Expected(Sym: TptTokenKind); virtual;
     procedure ExpectedEx(Sym: TptTokenKind); virtual;
@@ -217,7 +222,6 @@ type
     procedure HandlePtIfDefDirect(Sender: TmwBasePasLex); virtual;
     procedure HandlePtIfNDefDirect(Sender: TmwBasePasLex); virtual;
     procedure HandlePtIfOptDirect(Sender: TmwBasePasLex); virtual;
-    procedure HandlePtIncludeDirect(Sender: TmwBasePasLex); virtual;
     procedure HandlePtResourceDirect(Sender: TmwBasePasLex); virtual;
     procedure HandlePtUndefDirect(Sender: TmwBasePasLex); virtual;
     procedure HandlePtIfDirect(Sender: TmwBasePasLex); virtual;
@@ -257,6 +261,7 @@ type
     procedure ClassField; virtual;
     procedure ClassForward; virtual;
     procedure ClassFunctionHeading; virtual;
+    procedure ClassHelper; virtual;
     procedure ClassHeritage; virtual;
     procedure ClassMemberList; virtual;
     procedure ClassMethodDirective; virtual;
@@ -265,6 +270,7 @@ type
     procedure ClassMethodResolution; virtual;
     procedure ClassProcedureHeading; virtual;
     procedure ClassClass; virtual;
+    procedure ClassConstraint; virtual; 
     procedure ClassMethod; virtual;
     procedure ClassProperty; virtual;
     procedure ClassReferenceType; virtual;
@@ -281,6 +287,7 @@ type
     procedure ConstantValue; virtual;
     procedure ConstantValueTyped; virtual;
     procedure ConstParameter; virtual;
+    procedure ConstructorConstraint; virtual; 
     procedure ConstructorHeading; virtual;
     procedure ConstructorName; virtual;
     procedure ConstSection; virtual;
@@ -293,6 +300,7 @@ type
     procedure DestructorName; virtual;
     procedure Directive16Bit; virtual;
     procedure DirectiveBinding; virtual;
+    procedure DirectiveBindingMessage; virtual;
     procedure DirectiveCalling; virtual;
     procedure DirectiveDeprecated; virtual;
     procedure DirectiveLibrary; virtual;
@@ -375,7 +383,7 @@ type
     procedure MainUsesClause; virtual;
     procedure MethodKind; virtual;
     procedure MultiplicativeOperator; virtual;
-    procedure NewFormalParameterType; virtual;
+    procedure FormalParameterType; virtual;
     procedure NotOp; virtual;
     procedure NilToken; virtual;
     procedure Number; virtual;
@@ -395,7 +403,6 @@ type
     procedure ObjectType; virtual;
     procedure ObjectTypeEnd; virtual;
     procedure ObjectVisibility; virtual;
-    procedure OldFormalParameterType; virtual;
     procedure OrdinalIdentifier; virtual;
     procedure OrdinalType; virtual;
     procedure OutParameter; virtual;
@@ -430,6 +437,7 @@ type
     procedure RealIdentifier; virtual;
     procedure RealType; virtual;
     procedure RecordConstant; virtual;
+    procedure RecordConstraint; virtual; 
     procedure RecordFieldConstant; virtual;
     procedure RecordType; virtual;
     procedure RecordVariant; virtual;
@@ -440,6 +448,7 @@ type
     procedure RequiresIdentifierId; virtual;
     procedure ResolutionInterfaceName; virtual;
     procedure ResourceDeclaration; virtual;
+    procedure ResourceValue; virtual;
     procedure ReturnType; virtual;
     procedure RoundClose; virtual;
     procedure RoundOpen; virtual;
@@ -457,6 +466,8 @@ type
     procedure SkipCRLF; virtual;
     procedure SlashesComment; virtual;
     procedure Statement; virtual;
+    procedure StatementOrExpression; virtual;
+    procedure Statements; virtual;
     procedure StatementList; virtual;
     procedure StorageExpression; virtual;
     procedure StorageIdentifier; virtual;
@@ -518,6 +529,8 @@ type
     procedure VisibilityProtected; virtual;
     procedure VisibilityPublic; virtual;
     procedure VisibilityPublished; virtual;
+    procedure VisibilityStrictPrivate; virtual;
+    procedure VisibilityStrictProtected; virtual;
     procedure VisibilityUnknown; virtual;
     procedure WhileStatement; virtual;
     procedure WithExpressionList; virtual;
@@ -567,11 +580,13 @@ type
     property IncludeComments: Boolean read FIncludeComments write FIncludeComments;
     property InterfaceOnly: Boolean read FInterfaceOnly write FInterfaceOnly;
     property Lexer: TmwPasLex read FLexer;
+    property OnComment: TCommentEvent read GetOnComment write SetOnComment;
     property OnMessage: TMessageEvent read FOnMessage write FOnMessage;
     property LastNoJunkPos: Integer read FLastNoJunkPos;
     property LastNoJunkLen: Integer read FLastNoJunkLen;
 
     property UseDefines: Boolean read GetUseDefines write SetUseDefines;
+    property IncludeHandler: IIncludeHandler write SetIncludeHandler;
   end;
 
 implementation
@@ -594,8 +609,8 @@ end;
 
 constructor ESyntaxError.CreatePos(const Msg: string; aPosXY: TTokenPoint);
 begin
-  Message := Msg;
   FPosXY := aPosXY;
+  inherited Create(Msg);
 end;
 
 { TmwSimplePasPar }
@@ -649,16 +664,23 @@ type
     property Bytes: TBytes read GetBytes;
   end;
 
-  TStringStreamHelper = class helper for TStringStream
-    function GetDataString: string;
-    property DataString: string read GetDataString;
-  end;
+    TStringStreamHelper = class helper for TStringStream
+      function GetDataString: string;
+      {$IFNDEF FPC}
+      property DataString: string read GetDataString;
+      {$ENDIF}
+    end;
 
 function TBytesStreamHelper.GetBytes: TBytes;
 begin
-  Result := Self.FBytes;
+  {$IFNDEF FPC}
+    Result := Self.FBytes;
+  {$ELSE}
+    Result := Self.Bytes;
+  {$ENDIF}
 end;
 
+{$IFNDEF FPC}
 function TStringStreamHelper.GetDataString: string;
 begin
   // try to read a bom from the buffer to create the correct encoding
@@ -672,21 +694,49 @@ begin
   else
     Result := Self.FEncoding.GetString(Bytes, 0, Size);
 end;
+{$ELSE}
+function TStringStreamHelper.GetDataString: string;
+var
+  Encoding: TEncoding;
+  Bytes: TBytes;
+begin
+  Encoding := nil;
+  SetLength(Bytes, Self.Size);
+  Bytes := BytesOf(DataString);
+  TEncoding.GetBufferEncoding(Bytes, Encoding);
+  Result := Encoding.GetString(Bytes, Length(Encoding.GetPreamble), Size);
+end;
+{$ENDIF}
 
 procedure TmwSimplePasPar.Run(const UnitName: string; SourceStream: TStream);
 var
   StringStream: TStringStream;
   OwnStream: Boolean;
+
+  {$IFDEF FPC}
+    Strings: TStringList;
+  {$ENDIF}
 begin
   OwnStream := not (SourceStream is TStringStream);
   if OwnStream then
   begin
+    {$IFNDEF FPC}
     StringStream := TStringStream.Create;
     StringStream.LoadFromStream(SourceStream);
+    {$ELSE}
+      Strings := TStringList.Create;
+      try
+        Strings.LoadFromStream(SourceStream);
+        StringStream := TStringStream.Create('');
+        Strings.SaveToStream(StringStream);
+      finally
+        FreeAndNil(Strings);
+      end;
+    {$ENDIF}
   end
   else
     StringStream := TStringStream(SourceStream);
-  FLexer.Origin := PChar(StringStream.DataString);
+  FLexer.Origin := StringStream.GetDataString;
   ParseFile;
   if OwnStream then
     StringStream.Free;
@@ -703,7 +753,6 @@ begin
   FLexer.OnIfDefDirect := HandlePtIfDefDirect;
   FLexer.OnIfNDefDirect := HandlePtIfNDefDirect;
   FLexer.OnIfOptDirect := HandlePtIfOptDirect;
-  FLexer.OnIncludeDirect := HandlePtIncludeDirect;
   FLexer.OnResourceDirect := HandlePtResourceDirect;
   FLexer.OnUnDefDirect := HandlePtUndefDirect;
   FLexer.OnIfDirect := HandlePtIfDirect;
@@ -842,13 +891,6 @@ begin
 end;
 
 procedure TmwSimplePasPar.HandlePtIfOptDirect(Sender: TmwBasePasLex);
-begin
-  if Assigned(FOnMessage) then
-    FOnMessage(Self, meNotSupported, 'Currently not supported ' + FLexer.Token, FLexer.PosXY.X, FLexer.PosXY.Y);
-  Sender.Next;
-end;
-
-procedure TmwSimplePasPar.HandlePtIncludeDirect(Sender: TmwBasePasLex);
 begin
   if Assigned(FOnMessage) then
     FOnMessage(Self, meNotSupported, 'Currently not supported ' + FLexer.Token, FLexer.PosXY.X, FLexer.PosXY.Y);
@@ -999,6 +1041,11 @@ end;
 function TmwSimplePasPar.GetInRound: Boolean;
 begin
   Result := FInRound > 0;
+end;
+
+function TmwSimplePasPar.GetOnComment: TCommentEvent;
+begin
+  Result := FLexer.OnComment;
 end;
 
 procedure TmwSimplePasPar.SynError(Error: TmwParseError);
@@ -1528,6 +1575,8 @@ begin
   while ExID in [ptRead, ptReadOnly, ptWrite, ptWriteOnly, ptAdd, ptRemove] do
   begin
     AccessSpecifier;
+    if TokenID = ptSemicolon then
+      NextToken;
   end;
   if ExID = ptDispId then
   begin
@@ -1536,12 +1585,15 @@ begin
   while ExID in [ptDefault, ptNoDefault, ptStored] do
   begin
     StorageSpecifier;
+    if TokenID = ptSemicolon then
+      NextToken;
   end;
   if ExID = ptImplements then
   begin
     ImplementsSpecifier;
   end;
-  Semicolon;
+  if TokenID = ptSemicolon then
+    NextToken;
 end;
 
 procedure TmwSimplePasPar.PropertyInterface;
@@ -1674,7 +1726,9 @@ begin
   while TokenId in [ptConstructor, ptRecord, ptClass, ptIdentifier] do
   begin
     case TokenId of
-      ptConstructor, ptRecord, ptClass: NextToken;
+      ptConstructor: ConstructorConstraint;
+      ptRecord: RecordConstraint;
+      ptClass: ClassConstraint;
       ptIdentifier: TypeId;
     end;
     if TokenId = ptComma then
@@ -1689,6 +1743,11 @@ begin
   begin
     Constraint;
   end;
+end;
+
+procedure TmwSimplePasPar.ConstructorConstraint;
+begin
+  Expected(ptConstructor);
 end;
 
 procedure TmwSimplePasPar.ConstructorHeading;
@@ -1855,6 +1914,10 @@ end;
 procedure TmwSimplePasPar.DirectiveBinding;
 begin
   case ExID of
+    ptAbstract:
+      begin
+        NextToken;
+      end;  
     ptVirtual:
       begin
         NextToken;
@@ -1865,8 +1928,7 @@ begin
       end;
     ptMessage:
       begin
-        NextToken;
-        ConstantExpression;
+        DirectiveBindingMessage;
       end;
     ptOverride:
       begin
@@ -1887,20 +1949,18 @@ begin
   end;
 end;
 
+procedure TmwSimplePasPar.DirectiveBindingMessage;
+begin
+  NextToken;
+  ConstantExpression;
+end;
+
 procedure TmwSimplePasPar.ReturnType;
 begin
   while TokenID = ptSquareOpen do
     CustomAttribute;
-  case TokenID of
-    ptString:
-      begin
-        StringType;
-      end;
-  else
-    begin
-      TypeID;
-    end;
-  end;
+
+  TypeID;
 end;
 
 procedure TmwSimplePasPar.RoundClose;
@@ -1961,7 +2021,7 @@ begin
     ptColon:
       begin
         NextToken;
-        NewFormalParameterType;
+        FormalParameterType;
         if TokenID = ptEqual then
         begin
           NextToken;
@@ -1979,7 +2039,7 @@ begin
     ptColon:
       begin
         NextToken;
-        NewFormalParameterType;
+        FormalParameterType;
       end
   end;
 end;
@@ -1992,7 +2052,7 @@ begin
     ptColon:
       begin
         NextToken;
-        NewFormalParameterType;
+        FormalParameterType;
       end
   end;
 end;
@@ -2004,7 +2064,7 @@ begin
       begin
         ParameterNameList;
         Expected(ptColon);
-        NewFormalParameterType;
+        FormalParameterType;
         if TokenID = ptEqual then
         begin
           NextToken;
@@ -2039,47 +2099,9 @@ begin
   Expected(ptIdentifier);
 end;
 
-procedure TmwSimplePasPar.NewFormalParameterType;
+procedure TmwSimplePasPar.FormalParameterType;
 begin
-  case TokenID of
-    ptArray:
-      begin
-        NextToken;
-        Expected(ptOf);
-        case TokenID of
-          ptConst: (*new in ObjectPascal80*)
-            begin
-              NextToken;
-            end;
-        else
-          begin
-            OldFormalParameterType;
-          end;
-        end;
-      end;
-  else
-    begin
-      OldFormalParameterType;
-    end;
-  end;
-end;
-
-procedure TmwSimplePasPar.OldFormalParameterType;
-begin
-  case TokenID of
-    ptString:
-      begin
-        NextToken;
-      end;
-    ptFile:
-      begin
-        FileType;
-      end;
-  else
-    begin
-      TypeID;
-    end;
-  end;
+  TypeID;
 end;
 
 procedure TmwSimplePasPar.FunctionMethodDeclaration;
@@ -2147,7 +2169,7 @@ begin
 
   while ExID in [ptAbstract, ptCdecl, ptDynamic, ptExport, ptExternal, ptDelayed, ptFar,
     ptMessage, ptNear, ptOverload, ptOverride, ptPascal, ptRegister,
-    ptReintroduce, ptSafeCall, ptStdCall, ptVirtual, ptDeprecated, ptLibrary,
+    ptReintroduce, ptSafeCall, ptStdCall, ptVirtual, ptLibrary,
     ptPlatform, ptLocal, ptVarargs, ptAssembler, ptStatic, ptInline, ptForward,
     ptExperimental, ptDeprecated] do
   begin
@@ -2366,17 +2388,16 @@ end;
 
 procedure TmwSimplePasPar.ExceptBlock;
 begin
-  case ExID of
-    ptOn:
-      begin
-        ExceptionHandlerList;
-        ExceptionBlockElseBranch
-      end;
-  else
-    begin
+  if ExID = ptOn then
+  begin
+    ExceptionHandlerList;
+    if TokenID = ptElse then
+      ExceptionBlockElseBranch;
+  end else
+    if TokenID = ptElse then
+      ExceptionBlockElseBranch
+    else
       StatementList;
-    end;
-  end;
 end;
 
 procedure TmwSimplePasPar.ExceptionHandlerList;
@@ -2398,13 +2419,8 @@ end;
 
 procedure TmwSimplePasPar.ExceptionBlockElseBranch;
 begin
-  case TokenID of
-    ptElse:
-      begin
-        NextToken;
-        StatementList;
-      end;
-  end;
+  NextToken;
+  StatementList;
 end;
 
 procedure TmwSimplePasPar.ExceptionIdentifier;
@@ -2415,28 +2431,27 @@ begin
       begin
         ExceptionClassTypeIdentifier;
       end;
+    ptColon:
+      begin
+        ExceptionVariable;
+      end
   else
     begin
-      ExceptionVariable;
-      case Lexer.TokenID of
-        ptColon:
-          begin
-            NextToken;
-            ExceptionClassTypeIdentifier;
-          end;
-      end;
+      ExceptionClassTypeIdentifier;
     end;
   end;
 end;
 
 procedure TmwSimplePasPar.ExceptionClassTypeIdentifier;
 begin
-  QualifiedIdentifier;
+  TypeKind;
 end;
 
 procedure TmwSimplePasPar.ExceptionVariable;
 begin
   Expected(ptIdentifier);
+  Expected(ptColon);
+  ExceptionClassTypeIdentifier;
 end;
 
 procedure TmwSimplePasPar.InlineStatement;
@@ -2460,7 +2475,7 @@ begin
     ptColon:
       begin
         NextToken;
-        NewFormalParameterType;
+        FormalParameterType;
         if TokenID = ptEqual then
         begin
           NextToken;
@@ -2572,6 +2587,27 @@ begin
 end;
 
 procedure TmwSimplePasPar.StatementList;
+begin
+  Statements;
+end;
+
+procedure TmwSimplePasPar.StatementOrExpression;
+begin
+  if TokenID = ptGoto then
+    SimpleStatement
+  else
+  begin
+    InitAhead;
+    AheadParse.Designator;
+
+    if AheadParse.TokenId in [ptAssign, ptSemicolon] then
+      SimpleStatement
+    else
+      Expression;
+  end;
+end;
+
+procedure TmwSimplePasPar.Statements;
 begin {removed ptIntegerConst jdj-Put back in for labels}
   while TokenID in [ptAddressOp, ptAsm, ptBegin, ptCase, ptDoubleAddressOp,
     ptFor, ptGoTo, ptIdentifier, ptIf, ptInherited, ptInline, ptIntegerConst,
@@ -2635,7 +2671,7 @@ begin
             end;
         else
           begin
-            SimpleStatement;
+            StatementOrExpression;
           end;
         end;
       end;
@@ -2688,7 +2724,7 @@ begin
       end;
   else
     begin
-      SimpleStatement;
+      StatementOrExpression;
     end;
   end;
 end;
@@ -2737,7 +2773,6 @@ end;
 procedure TmwSimplePasPar.StringStatement;
 begin
   Expected(ptString);
-  Statement;
 end;
 
 procedure TmwSimplePasPar.SetElement;
@@ -2748,6 +2783,16 @@ begin
     NextToken;
     Expression;
   end;
+end;
+
+procedure TmwSimplePasPar.SetIncludeHandler(IncludeHandler: IIncludeHandler);
+begin
+  FLexer.IncludeHandler := IncludeHandler;
+end;
+
+procedure TmwSimplePasPar.SetOnComment(const Value: TCommentEvent);
+begin
+  FLexer.OnComment := Value;
 end;
 
 procedure TmwSimplePasPar.QualifiedIdentifier;
@@ -2906,16 +2951,19 @@ begin
       end;
     ptString:
       begin
-        StringType;
+        StringStatement;
       end;
     ptFunction, ptProcedure:
       AnonymousMethod;
   end;
 
-  if TokenID = ptPointerSymbol then
+  while TokenID = ptSquareOpen do
+    IndexOp;
+
+  while TokenID = ptPointerSymbol do
     PointerSymbol;
 
-  if TokenID in [ptRoundOpen, ptSquareOpen] then
+  if TokenID = ptRoundOpen then
     Factor;
 
   while TokenID = ptPoint do
@@ -3244,11 +3292,7 @@ begin
     Exit;
 
   if ExID = ptHelper then
-  begin
-    ExpectedEx(ptHelper);
-    Expected(ptFor);
-    TypeId;
-  end;
+    ClassHelper;
 
   if TokenID = ptRoundOpen then
   begin
@@ -3681,13 +3725,7 @@ begin
           Expected(ptIdentifier);
 
         if Lexer.ExID = ptHelper then
-        begin
-          ExpectedEx(ptHelper);
-          if TokenID = ptRoundOpen then
-            ClassHeritage;
-          Expected(ptFor);
-          TypeId;
-        end;
+          ClassHelper;
       end;
     ptSealed:
       Expected(ptSealed);
@@ -3726,6 +3764,15 @@ begin
   end;
 end;
 
+procedure TmwSimplePasPar.ClassHelper;
+begin
+  ExpectedEx(ptHelper);
+  if TokenID = ptRoundOpen then
+    ClassHeritage;
+  Expected(ptFor);
+  TypeId;
+end;
+
 procedure TmwSimplePasPar.ClassHeritage;
 begin
   Expected(ptRoundOpen);
@@ -3734,9 +3781,13 @@ begin
 end;
 
 procedure TmwSimplePasPar.ClassVisibility;
+var
+  IsStrict: boolean;
 begin
-  if TokenID = ptStrict then
-    Expected(ptStrict);
+  IsStrict := ExID = ptStrict;
+  if IsStrict then
+    ExpectedEx(ptStrict);
+      
   while ExID in [ptAutomated, ptPrivate, ptProtected, ptPublic, ptPublished] do
   begin
     Lexer.InitAhead;
@@ -3750,11 +3801,17 @@ begin
           end;
         ptPrivate:
           begin
-            VisibilityPrivate;
+            if IsStrict then
+              VisibilityStrictPrivate
+            else
+              VisibilityPrivate;
           end;
         ptProtected:
           begin
-            VisibilityProtected;
+            if IsStrict then
+              VisibilityStrictProtected
+            else
+              VisibilityProtected;
           end;
         ptPublic:
           begin
@@ -3774,9 +3831,19 @@ begin
   ExpectedEx(ptAutomated);
 end;
 
+procedure TmwSimplePasPar.VisibilityStrictPrivate;
+begin
+  ExpectedEx(ptPrivate);
+end;
+
 procedure TmwSimplePasPar.VisibilityPrivate;
 begin
   ExpectedEx(ptPrivate);
+end;
+
+procedure TmwSimplePasPar.VisibilityStrictProtected;
+begin
+  ExpectedEx(ptProtected);
 end;
 
 procedure TmwSimplePasPar.VisibilityProtected;
@@ -3800,9 +3867,8 @@ end;
 
 procedure TmwSimplePasPar.ClassMemberList;
 begin
-  while TokenID in [ptClass, ptConstructor, ptDestructor, ptFunction,
-    ptIdentifier, ptProcedure, ptProperty,
-    ptType, ptSquareOpen, ptVar, ptConst, ptStrict, ptCase] do
+  while (TokenID in [ptClass, ptConstructor, ptDestructor, ptFunction,
+    ptIdentifier, ptProcedure, ptProperty, ptType, ptSquareOpen, ptVar, ptConst, ptCase]) or (ExID = ptStrict) do
   begin
     ClassVisibility;
 
@@ -3810,7 +3876,7 @@ begin
       CustomAttribute;
 
     if (TokenID = ptIdentifier) and
-      not (ExID in [ptPrivate, ptProtected, ptPublished, ptPublic]) then
+      not (ExID in [ptPrivate, ptProtected, ptPublished, ptPublic, ptStrict]) then
     begin
       InitAhead;
       AheadParse.NextToken;
@@ -4237,11 +4303,8 @@ begin
         AheadParse.NextToken;
         AheadParse.SimpleExpression;
         if AheadParse.TokenID = ptDotDot then
-        begin
-          SimpleExpression;
-          Expected(ptDotDot);
-          SimpleExpression;
-        end else
+          SubrangeType
+        else
           TypeId;
       end;
   else
@@ -4269,6 +4332,11 @@ begin
       RecordFieldConstant;
   end;
   Expected(ptRoundClose);
+end;
+
+procedure TmwSimplePasPar.RecordConstraint;
+begin
+  Expected(ptRecord);
 end;
 
 procedure TmwSimplePasPar.ArrayConstant;
@@ -4342,6 +4410,9 @@ begin
     end else
       ExplicitType;
   end;
+
+  if (TokenID = ptPacked) and (Lexer.AheadTokenID in [ptClass, ptObject]) then
+    NextToken;
 
   case TokenID of
     ptPointerSymbol:
@@ -4458,11 +4529,8 @@ begin
         AheadParse.NextToken;
         AheadParse.SimpleExpression;
         if AheadParse.TokenID = ptDotDot then
-        begin
-          SimpleExpression;
-          Expected(ptDotDot);
-          SimpleExpression;
-        end else
+          SubrangeType
+        else
           TypeId;
       end;
     ptPointerSymbol:
@@ -4471,7 +4539,7 @@ begin
       end;
     ptString:
       begin
-        StringType;
+        TypeId;
       end;
   else
     begin
@@ -4572,15 +4640,10 @@ end;
 
 procedure TmwSimplePasPar.ResourceDeclaration;
 begin
-  Identifier;
+  ConstantName;
   Expected(ptEqual);
 
-  CharString;
-  while TokenID = ptPlus do
-  begin
-    NextToken;
-    CharString;
-  end;
+  ResourceValue;
 
   while ExID in [ptDeprecated, ptLibrary, ptPlatform] do
     case ExID of
@@ -4588,6 +4651,16 @@ begin
       ptLibrary: DirectiveLibrary;
       ptPlatform: DirectivePlatform;
     end;
+end;
+
+procedure TmwSimplePasPar.ResourceValue;
+begin
+  CharString;
+  while TokenID = ptPlus do
+  begin
+    NextToken;
+    CharString;
+  end;
 end;
 
 procedure TmwSimplePasPar.ConstantDeclaration;
@@ -4723,7 +4796,7 @@ begin
   case ExID of
     ptAbstract:
       begin
-        NextToken;
+        DirectiveBinding;
       end;
     ptCdecl, ptPascal, ptRegister, ptSafeCall, ptStdCall:
       begin
@@ -4913,7 +4986,22 @@ begin
     ptFile:
       begin
         FileType;
-      end
+      end;
+    ptArray:
+      begin
+        NextToken;
+        Expected(ptOf);
+        case TokenID of
+          ptConst: (*new in ObjectPascal80*)
+            begin
+              NextToken;
+            end;
+        else
+          begin
+            TypeID;
+          end;
+        end;
+      end;
   else
     Expected(ptIdentifier);
   end;
@@ -5079,7 +5167,7 @@ end;
 procedure TmwSimplePasPar.CompoundStatement;
 begin
   Expected(ptBegin);
-  StatementList;
+  Statements;
   Expected(ptEnd);
 end;
 
@@ -5196,6 +5284,7 @@ begin
           ptString:
             begin
               StringStatement;
+              Statement;
             end;
         else
           StringConst;
@@ -5310,6 +5399,11 @@ begin
 end;
 
 procedure TmwSimplePasPar.ClassClass;
+begin
+  Expected(ptClass);
+end;
+
+procedure TmwSimplePasPar.ClassConstraint;
 begin
   Expected(ptClass);
 end;
@@ -5479,11 +5573,11 @@ procedure TmwSimplePasPar.ImplementsSpecifier;
 begin
   ExpectedEx(ptImplements);
 
-  TypeSimple;
+  TypeId;
   while (TokenID = ptComma) do
   begin
     NextToken;
-    TypeSimple;
+    TypeId;
   end;
 end;
 
@@ -5734,4 +5828,3 @@ begin
 end;
 
 end.
-

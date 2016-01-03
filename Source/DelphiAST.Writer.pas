@@ -3,6 +3,9 @@ unit DelphiAST.Writer;
 interface
 
 uses
+  {$IFDEF FPC}
+     StringBuilderUnit,
+  {$ENDIF}
   DelphiAST.Classes, SysUtils;
 
 type
@@ -61,7 +64,7 @@ class procedure TSyntaxTreeWriter.NodeToXML(const Builder: TStringBuilder;
   var
     HasChildren: Boolean;
     NewIndent: string;
-    Attr: TPair<string, string>;
+    Attr: TPair<TAttributeName, string>;
     ChildNode: TSyntaxNode;
   begin
     HasChildren := Node.HasChildren;
@@ -84,8 +87,14 @@ class procedure TSyntaxTreeWriter.NodeToXML(const Builder: TStringBuilder;
       Builder.Append(' col="' + IntToStr(Node.Col) + '"');
     end;
 
+    if Node.FileName <> '' then
+      Builder.Append('  file="' + XMLEncode(Node.FileName) + '"');
+
+    if Node is TValuedSyntaxNode then
+      Builder.Append(' value="' + XMLEncode(TValuedSyntaxNode(Node).Value) + '"');
+
     for Attr in Node.Attributes do
-      Builder.Append(' ' + Attr.Key + '="' + XMLEncode(Attr.Value) + '"');
+      Builder.Append(' ' + AttributeNameToStr(Attr.Key) + '="' + XMLEncode(Attr.Value) + '"');
     if HasChildren then
       Builder.Append('>')
     else

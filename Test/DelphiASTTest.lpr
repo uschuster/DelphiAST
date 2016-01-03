@@ -1,14 +1,14 @@
 program DelphiASTTest;
 
+{$MODE Delphi}
+
 uses
-  Vcl.Forms,
+  Forms, Interfaces,
   uMainForm in 'uMainForm.pas' {Form2};
 
 {$R *.res}
 
 begin
-  System.ReportMemoryLeaksOnShutdown := True;
-
   Application.Initialize;
   Application.MainFormOnTaskbar := True;
   Application.CreateForm(TForm2, Form2);
