@@ -16,6 +16,7 @@ type
   private
     { Private declarations }
     FHighlighter: TJVCSCompressedDiffSynProxyHighlighter;
+    procedure AddSampleRanges;
   public
     { Public declarations }
   end;
@@ -28,14 +29,19 @@ implementation
 {$R *.dfm}
 
 procedure TForm9.FormCreate(Sender: TObject);
-var
-  BR: TBlockRange;
 begin
   SynPasSyn1.UseUserSettings(1);
   FHighlighter := TJVCSCompressedDiffSynProxyHighlighter.Create(nil);
   FHighlighter.InternalHighlighter := SynPasSyn1;
   SynEdit1.Highlighter := FHighlighter;
 
+  AddSampleRanges;
+end;
+
+procedure TForm9.AddSampleRanges;
+var
+  BR: TBlockRange;
+begin
   BR := FHighlighter.BlockRanges.Add;
   BR.FromCol := 1;
   BR.FromLine := 7;
