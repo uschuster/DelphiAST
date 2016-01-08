@@ -37,6 +37,7 @@ type
     procedure DrawLegend(ACanvas: TCanvas; ARect: TRect);
     {$IFDEF WITH_SYNTAX_TREE}
     procedure HandleSyntaxTreeGetColor(Sender: TObject; ANode: TSyntaxNode; ALevel: Integer; var AColor: TColor);
+    procedure HandleSyntaxTreeFocused(Sender: TObject; ANode: TSyntaxNode);
     {$ENDIF}
     procedure UpdateNode;
     procedure UpdateRanges;
@@ -99,8 +100,10 @@ begin
   FSyntaxTreeFrame.Parent := pnlSyntaxTree;
   FSyntaxTreeFrame.Align := alClient;
   FSyntaxTreeFrame.OnGetColor := HandleSyntaxTreeGetColor;
+  FSyntaxTreeFrame.OnSyntaxNodeFocusedEvent := HandleSyntaxTreeFocused;
   pnlSyntaxTree.Visible := True;
   splSyntaxTree.Visible := True;
+  SynEdit1.AlwaysShowCaret := True;
   {$ENDIF}
 
   FSampleMode := False;
@@ -118,6 +121,25 @@ procedure TForm9.HandleSyntaxTreeGetColor(Sender: TObject; ANode: TSyntaxNode; A
 begin
   if ALevel < FHighlighter.LevelColorCount then
     AColor := FHighlighter.LevelColors[ALevel];
+end;
+
+procedure TForm9.HandleSyntaxTreeFocused(Sender: TObject; ANode: TSyntaxNode);
+var
+  C: TCompoundSyntaxNode;
+  NewCaret, FromCoord, ToCoord: TBufferCoord;
+begin
+  FromCoord.Char := ANode.Col;
+  FromCoord.Line := ANode.Line;
+  if ANode is TCompoundSyntaxNode then
+  begin
+    C := TCompoundSyntaxNode(ANode);
+    ToCoord.Char := C.EndCol + 1;
+    ToCoord.Line := C.EndLine;
+  end
+  else
+    ToCoord := FromCoord;
+  NewCaret := FromCoord;
+  SynEdit1.SetCaretAndSelection(NewCaret, FromCoord, ToCoord);
 end;
 {$ENDIF}
 

@@ -19,6 +19,7 @@ object frmSyntaxTree: TfrmSyntaxTree
     Header.MainColumn = -1
     TabOrder = 0
     OnBeforeItemErase = VSTBeforeItemErase
+    OnFocusChanged = VSTFocusChanged
     OnGetText = VSTGetText
     OnInitChildren = VSTInitChildren
     OnInitNode = VSTInitNode

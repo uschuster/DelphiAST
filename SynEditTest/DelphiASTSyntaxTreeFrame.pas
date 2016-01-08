@@ -8,6 +8,7 @@ uses
 
 type
   TSyntaxTreeGetColorEvent = procedure(Sender: TObject; ANode: TSyntaxNode; ALevel: Integer; var AColor: TColor) of object;
+  TSyntaxNodeFocusedEvent = procedure(Sender: TObject; ANode: TSyntaxNode) of object;
 
   TfrmSyntaxTree = class(TFrame)
     VST: TVirtualStringTree;
@@ -18,16 +19,20 @@ type
       var CellText: string);
     procedure VSTBeforeItemErase(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode; ItemRect: TRect;
       var ItemColor: TColor; var EraseAction: TItemEraseAction);
+    procedure VSTFocusChanged(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex);
   private
     { Private declarations }
     FNode: TSyntaxNode;
+    FOnSyntaxNodeFocusedEvent: TSyntaxNodeFocusedEvent;
     FOnSyntaxTreeGetColorEvent: TSyntaxTreeGetColorEvent;
     function DoGetSyntaxNodeColor(ANode: PVirtualNode): TColor;
+    procedure DoSyntaxNodeFocused(ANode: TSyntaxNode);
     procedure SetNode(AValue: TSyntaxNode);
   public
     { Public declarations }
     property Node: TSyntaxNode read FNode write SetNode;
     property OnGetColor: TSyntaxTreeGetColorEvent read FOnSyntaxTreeGetColorEvent write FOnSyntaxTreeGetColorEvent;
+    property OnSyntaxNodeFocusedEvent: TSyntaxNodeFocusedEvent read FOnSyntaxNodeFocusedEvent write FOnSyntaxNodeFocusedEvent;
   end;
 
 implementation
@@ -50,6 +55,12 @@ begin
   end;
 end;
 
+procedure TfrmSyntaxTree.DoSyntaxNodeFocused(ANode: TSyntaxNode);
+begin
+  if Assigned(FOnSyntaxNodeFocusedEvent) then
+    FOnSyntaxNodeFocusedEvent(Self, ANode);
+end;
+
 procedure TfrmSyntaxTree.SetNode(AValue: TSyntaxNode);
 begin
   VST.RootNodeCount := 0;
@@ -69,6 +80,21 @@ begin
     ItemColor := UserColor;
     EraseAction := eaColor;
   end;
+end;
+
+procedure TfrmSyntaxTree.VSTFocusChanged(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex);
+var
+  Data: ^TSyntaxNode;
+  FocusedSyntaxNode: TSyntaxNode;
+begin
+  inherited;
+  FocusedSyntaxNode := nil;
+  if Assigned(Node) then
+  begin
+    Data := Sender.GetNodeData(Node);
+    FocusedSyntaxNode := Data^;
+  end;
+  DoSyntaxNodeFocused(FocusedSyntaxNode);
 end;
 
 procedure TfrmSyntaxTree.VSTGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
