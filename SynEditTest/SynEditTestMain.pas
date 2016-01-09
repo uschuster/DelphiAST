@@ -128,16 +128,24 @@ var
   C: TCompoundSyntaxNode;
   NewCaret, FromCoord, ToCoord: TBufferCoord;
 begin
-  FromCoord.Char := ANode.Col;
-  FromCoord.Line := ANode.Line;
-  if ANode is TCompoundSyntaxNode then
+  if Assigned(ANode) then
   begin
-    C := TCompoundSyntaxNode(ANode);
-    ToCoord.Char := C.EndCol + 1;
-    ToCoord.Line := C.EndLine;
+    FromCoord.Char := ANode.Col;
+    FromCoord.Line := ANode.Line;
+    if ANode is TCompoundSyntaxNode then
+    begin
+      C := TCompoundSyntaxNode(ANode);
+      ToCoord.Char := C.EndCol + 1;
+      ToCoord.Line := C.EndLine;
+    end
+    else
+      ToCoord := FromCoord;
   end
   else
+  begin
+    FromCoord := SynEdit1.CaretXY;
     ToCoord := FromCoord;
+  end;
   NewCaret := FromCoord;
   SynEdit1.SetCaretAndSelection(NewCaret, FromCoord, ToCoord);
 end;
