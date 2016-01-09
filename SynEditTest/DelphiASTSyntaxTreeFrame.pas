@@ -12,6 +12,7 @@ type
 
   TfrmSyntaxTree = class(TFrame)
     VST: TVirtualStringTree;
+    VSTInformation: TVirtualStringTree;
     procedure VSTInitNode(Sender: TBaseVirtualTree; ParentNode, Node: PVirtualNode;
       var InitialStates: TVirtualNodeInitStates);
     procedure VSTInitChildren(Sender: TBaseVirtualTree; Node: PVirtualNode; var ChildCount: Cardinal);
@@ -20,16 +21,22 @@ type
     procedure VSTBeforeItemErase(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode; ItemRect: TRect;
       var ItemColor: TColor; var EraseAction: TItemEraseAction);
     procedure VSTFocusChanged(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex);
+    procedure VSTInformationGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
+      TextType: TVSTTextType; var CellText: string);
   private
     { Private declarations }
     FNode: TSyntaxNode;
+    FNodeInformation: TStringList;
     FOnSyntaxNodeFocusedEvent: TSyntaxNodeFocusedEvent;
     FOnSyntaxTreeGetColorEvent: TSyntaxTreeGetColorEvent;
     function DoGetSyntaxNodeColor(ANode: PVirtualNode): TColor;
     procedure DoSyntaxNodeFocused(ANode: TSyntaxNode);
     procedure SetNode(AValue: TSyntaxNode);
+    procedure UpdateNodeInformation;
   public
     { Public declarations }
+    constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
     procedure FocusNode(ANode: TSyntaxNode);
     property Node: TSyntaxNode read FNode write SetNode;
     property OnGetColor: TSyntaxTreeGetColorEvent read FOnSyntaxTreeGetColorEvent write FOnSyntaxTreeGetColorEvent;
@@ -42,6 +49,18 @@ uses
   TypInfo, DelphiAST.Consts;
 
 {$R *.dfm}
+
+constructor TfrmSyntaxTree.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+  FNodeInformation := TStringList.Create;
+end;
+
+destructor TfrmSyntaxTree.Destroy;
+begin
+  FNodeInformation.Free;
+  inherited Destroy;
+end;
 
 function TfrmSyntaxTree.DoGetSyntaxNodeColor(ANode: PVirtualNode): TColor;
 var
@@ -120,6 +139,44 @@ begin
     VST.RootNodeCount := 1;
 end;
 
+procedure TfrmSyntaxTree.UpdateNodeInformation;
+var
+  I: Integer;
+  S: string;
+  Data: ^TSyntaxNode;
+begin
+  VSTInformation.BeginUpdate;
+  try
+    VSTInformation.RootNodeCount := 0;
+    FNodeInformation.Clear;
+    if Assigned(VST.FocusedNode) then
+    begin
+      Data := VST.GetNodeData(VST.FocusedNode);
+      FNodeInformation.Add(Format('Node Class=%s', [Data^.ClassName]));
+      S := GetEnumName(TypeInfo(TSyntaxNodeType), Ord(Data^.Typ));
+      Delete(S, 1, 2);
+      FNodeInformation.Add(Format('Type=%s', [S]));
+      if Data^ is TValuedSyntaxNode then
+        FNodeInformation.Add(Format('Value=%s', [TValuedSyntaxNode(Data^).Value]));
+      if Data^.HasAttributes then
+        for I := Low(Data^.Attributes) to High(Data^.Attributes) do
+          FNodeInformation.Add(Format('Attribute %s=%s', [GetEnumName(TypeInfo(TAttributeName), Ord(Data^.Attributes[I].Key)),Data^.Attributes[I].Value]));
+    end;
+    VSTInformation.RootNodeCount := FNodeInformation.Count;
+  finally
+    VSTInformation.EndUpdate;
+  end;
+end;
+
+procedure TfrmSyntaxTree.VSTInformationGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
+  TextType: TVSTTextType; var CellText: string);
+begin
+  case Column of
+    0: CellText := FNodeInformation.Names[Node^.Index];
+    1: CellText := FNodeInformation.ValueFromIndex[Node^.Index];
+  end;
+end;
+
 procedure TfrmSyntaxTree.VSTBeforeItemErase(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode;
   ItemRect: TRect; var ItemColor: TColor; var EraseAction: TItemEraseAction);
 var
@@ -145,6 +202,7 @@ begin
     Data := Sender.GetNodeData(Node);
     FocusedSyntaxNode := Data^;
   end;
+  UpdateNodeInformation;
   DoSyntaxNodeFocused(FocusedSyntaxNode);
 end;
 
