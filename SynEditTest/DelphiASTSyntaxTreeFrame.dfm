@@ -8,7 +8,7 @@ object frmSyntaxTree: TfrmSyntaxTree
     Left = 0
     Top = 0
     Width = 307
-    Height = 366
+    Height = 328
     Align = alClient
     Header.AutoSizeIndex = 0
     Header.Font.Charset = DEFAULT_CHARSET
@@ -27,9 +27,9 @@ object frmSyntaxTree: TfrmSyntaxTree
   end
   object VSTInformation: TVirtualStringTree
     Left = 0
-    Top = 366
+    Top = 328
     Width = 307
-    Height = 100
+    Height = 138
     Align = alBottom
     Header.AutoSizeIndex = 0
     Header.Font.Charset = DEFAULT_CHARSET

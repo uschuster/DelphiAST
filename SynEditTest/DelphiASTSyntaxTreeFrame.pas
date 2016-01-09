@@ -46,7 +46,7 @@ type
 implementation
 
 uses
-  TypInfo, DelphiAST.Consts;
+  TypInfo, DelphiAST.Consts, DelphiASTTempUtils;
 
 {$R *.dfm}
 
@@ -144,6 +144,7 @@ var
   I: Integer;
   S: string;
   Data: ^TSyntaxNode;
+  C: TCompoundSyntaxNode;
 begin
   VSTInformation.BeginUpdate;
   try
@@ -161,6 +162,19 @@ begin
       if Data^.HasAttributes then
         for I := Low(Data^.Attributes) to High(Data^.Attributes) do
           FNodeInformation.Add(Format('Attribute %s=%s', [GetEnumName(TypeInfo(TAttributeName), Ord(Data^.Attributes[I].Key)),Data^.Attributes[I].Value]));
+      if Data^ is TCompoundSyntaxNode then
+      begin
+        C := TCompoundSyntaxNode(Data^);
+        S := Format('%d:%d - %d:%d', [C.Line, C.Col, C.EndLine, C.EndCol]);
+      end
+      else
+        S := Format('%d:%d', [Data^.Line, Data^.Col]);
+      FNodeInformation.Add(Format('Begin / End=%s', [S]));
+      if Data^.HasEnd then
+      begin
+        S := Format('%d:%d - %d:%d', [Data^.Line, Data^.Col, Data^.FixedEndLine, Data^.FixedEndCol]);
+        FNodeInformation.Add(Format('Fixed Begin / End=%s', [S]));
+      end;
     end;
     VSTInformation.RootNodeCount := FNodeInformation.Count;
   finally
