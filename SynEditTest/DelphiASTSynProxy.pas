@@ -144,7 +144,7 @@ type
     FAttrDeleteChar: TSynHighlighterAttributes;
     FAttrInsertLine: TSynHighlighterAttributes;
     FAttrInsertChar: TSynHighlighterAttributes;
-    FLevels: array [0..7, 0..2] of TSynHighlighterAttributes;
+    FLevels: array [0..9, 0..2] of TSynHighlighterAttributes;
     FKeyAttr: TSynHighlighterAttributes;
     FStringAttri: TSynHighlighterAttributes;
     FHighlightLines: THighlightLines;
@@ -471,6 +471,10 @@ begin
     FLevels[6][I].Background := RGB(224, 224, 192);
     FLevels[7][I] := TSynHighlighterAttributes.Create('Level 7'{$IFDEF UNISYNEDIT}, 'Level 7'{$ENDIF});
     FLevels[7][I].Background := RGB(255, 255, 208);
+    FLevels[8][I] := TSynHighlighterAttributes.Create('Level 8'{$IFDEF UNISYNEDIT}, 'Level 8'{$ENDIF});
+    FLevels[8][I].Background := RGB(224, 192, 224);
+    FLevels[9][I] := TSynHighlighterAttributes.Create('Level 9'{$IFDEF UNISYNEDIT}, 'Level 9'{$ENDIF});
+    FLevels[9][I].Background := RGB(255, 208, 255);
   end;
 
   FTokens := TLineTokens.Create;
