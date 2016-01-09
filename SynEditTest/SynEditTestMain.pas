@@ -21,9 +21,11 @@ type
     OpenDialog: TOpenDialog;
     pnlSyntaxTree: TPanel;
     splSyntaxTree: TSplitter;
+    btnFocusSyntaxTreeNodeAtCursor: TButton;
     procedure FormCreate(Sender: TObject);
     procedure PaintBox1Paint(Sender: TObject);
     procedure btnOpenClick(Sender: TObject);
+    procedure btnFocusSyntaxTreeNodeAtCursorClick(Sender: TObject);
   private
     { Private declarations }
     FLegendBottomY: Integer;
@@ -35,6 +37,7 @@ type
     {$ENDIF}
     procedure AddSampleRanges;
     procedure DrawLegend(ACanvas: TCanvas; ARect: TRect);
+    function FindNodeAtCursor(ACol, ALine: Integer; ANearest: Boolean): TSyntaxNode;
     {$IFDEF WITH_SYNTAX_TREE}
     procedure HandleSyntaxTreeGetColor(Sender: TObject; ANode: TSyntaxNode; ALevel: Integer; var AColor: TColor);
     procedure HandleSyntaxTreeFocused(Sender: TObject; ANode: TSyntaxNode);
@@ -65,6 +68,21 @@ begin
   end;
 end;
 
+procedure TForm9.btnFocusSyntaxTreeNodeAtCursorClick(Sender: TObject);
+var
+  Node: TSyntaxNode;
+begin
+  Node := FindNodeAtCursor(SynEdit1.CaretX, SynEdit1.CaretY, True);
+  if Assigned(Node) then
+  begin
+    {$IFDEF WITH_SYNTAX_TREE}
+    FSyntaxTreeFrame.FocusNode(Node);
+    {$ENDIF}
+  end
+  else
+    ShowMessage('No node found');
+end;
+
 procedure TForm9.DrawLegend(ACanvas: TCanvas; ARect: TRect);
 var
   I, Y, TextX: Integer;
@@ -89,6 +107,72 @@ begin
   end;
 end;
 
+function TForm9.FindNodeAtCursor(ACol, ALine: Integer; ANearest: Boolean): TSyntaxNode;
+
+  function FindNode(ANode: TSyntaxNode): TSyntaxNode;
+  var
+    I: Integer;
+    NodeMatches: Boolean;
+  begin
+    Result := nil;
+    NodeMatches := (ANode.Col = ACol) and (ANode.Line = ALine);
+    for I := Low(ANode.ChildNodes) to High(ANode.ChildNodes) do
+    begin
+      Result := FindNode(ANode.ChildNodes[I]);
+      if Assigned(Result) then
+        Break;
+    end;
+    if not Assigned(Result) and NodeMatches then
+      Result := ANode;
+  end;
+
+  function GetDistance(ANode: TSyntaxNode): Integer;
+  begin
+    Result := MaxInt;
+    if (ANode.Col < ACol) and (ANode.Line = ALine) then
+      Result := ACol - ANode.Col;
+  end;
+
+  function FindNearestNode(ANode: TSyntaxNode; var ADistance: Integer): TSyntaxNode;
+  var
+    I, NodeDistance, ChildDistance: Integer;
+    ChildResult, BestChildResult: TSyntaxNode;
+  begin
+    Result := nil;
+    NodeDistance := GetDistance(ANode);
+    if NodeDistance <= ADistance then
+    begin
+      ADistance := NodeDistance;
+      Result := ANode;
+    end;
+    ChildDistance := ADistance;
+    BestChildResult := nil;
+    for I := Low(ANode.ChildNodes) to High(ANode.ChildNodes) do
+    begin
+      ChildResult := FindNearestNode(ANode.ChildNodes[I], ChildDistance);
+      if Assigned(ChildResult) then
+        BestChildResult := ChildResult;
+      if ADistance = 1 then
+        Break;
+    end;
+    if (ChildDistance <= ADistance) and Assigned(BestChildResult) then
+    begin
+      Result := BestChildResult;
+      ADistance := ChildDistance;
+    end;
+  end;
+
+var
+  Distance: Integer;
+begin
+  Result := FindNode(FNode);
+  if not Assigned(Result) and ANearest then
+  begin
+    Distance := MaxInt;
+    Result := FindNearestNode(FNode, Distance);
+  end;
+end;
+
 procedure TForm9.FormCreate(Sender: TObject);
 begin
   SynPasSyn1.UseUserSettings(1);
@@ -103,6 +187,7 @@ begin
   FSyntaxTreeFrame.OnSyntaxNodeFocusedEvent := HandleSyntaxTreeFocused;
   pnlSyntaxTree.Visible := True;
   splSyntaxTree.Visible := True;
+  btnFocusSyntaxTreeNodeAtCursor.Visible := True;
   SynEdit1.AlwaysShowCaret := True;
   {$ENDIF}
 

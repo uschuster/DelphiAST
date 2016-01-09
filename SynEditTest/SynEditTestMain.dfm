@@ -45,6 +45,16 @@ object Form9: TForm9
       TabOrder = 0
       OnClick = btnOpenClick
     end
+    object btnFocusSyntaxTreeNodeAtCursor: TButton
+      Left = 152
+      Top = 4
+      Width = 129
+      Height = 25
+      Caption = 'Focus Node at cursor'
+      TabOrder = 1
+      Visible = False
+      OnClick = btnFocusSyntaxTreeNodeAtCursorClick
+    end
   end
   object SynEdit1: TSynEdit
     Left = 268

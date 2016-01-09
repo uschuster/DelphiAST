@@ -30,6 +30,7 @@ type
     procedure SetNode(AValue: TSyntaxNode);
   public
     { Public declarations }
+    procedure FocusNode(ANode: TSyntaxNode);
     property Node: TSyntaxNode read FNode write SetNode;
     property OnGetColor: TSyntaxTreeGetColorEvent read FOnSyntaxTreeGetColorEvent write FOnSyntaxTreeGetColorEvent;
     property OnSyntaxNodeFocusedEvent: TSyntaxNodeFocusedEvent read FOnSyntaxNodeFocusedEvent write FOnSyntaxNodeFocusedEvent;
@@ -59,6 +60,56 @@ procedure TfrmSyntaxTree.DoSyntaxNodeFocused(ANode: TSyntaxNode);
 begin
   if Assigned(FOnSyntaxNodeFocusedEvent) then
     FOnSyntaxNodeFocusedEvent(Self, ANode);
+end;
+
+procedure TfrmSyntaxTree.FocusNode(ANode: TSyntaxNode);
+var
+  ItemList: TList;
+  InsertNode: TSyntaxNode;
+  TestNode: PVirtualNode;
+  Found: Boolean;
+  Data: ^TSyntaxNode;
+begin
+  ItemList := TList.Create;
+  try
+    InsertNode := ANode;
+    while Assigned(InsertNode) do
+    begin
+      ItemList.Add(InsertNode);
+      InsertNode := InsertNode.ParentNode;
+    end;
+    Found := True;
+    TestNode := VST.RootNode^.FirstChild;
+    while Found and (ItemList.Count > 0) do
+    begin
+      Found := False;
+      while (not Found) and Assigned(TestNode) do
+      begin
+        Data := VST.GetNodeData(TestNode);
+        if Data^ = ItemList.Last then
+        begin
+          Found := True;
+          Break;
+        end
+        else
+          TestNode := TestNode^.NextSibling;
+      end;
+      if Found then
+      begin
+        ItemList.Delete(ItemList.Count - 1);
+        VST.Expanded[TestNode] := True;
+        if ItemList.Count > 0 then
+          TestNode := TestNode^.FirstChild;
+      end;
+    end;
+    if Found and (ItemList.Count = 0) then
+    begin
+      VST.FocusedNode := TestNode;
+      VST.Selected[TestNode] := True;
+    end;
+  finally
+    ItemList.Free;
+  end;
 end;
 
 procedure TfrmSyntaxTree.SetNode(AValue: TSyntaxNode);
