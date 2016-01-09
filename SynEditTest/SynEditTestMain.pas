@@ -31,6 +31,9 @@ type
     FLegendBottomY: Integer;
     FHighlighter: TJVCSCompressedDiffSynProxyHighlighter;
     FNode: TSyntaxNode;
+    FNodeCount: Integer;
+    FNodeFileName: string;
+    FNodeMaxLevel: Integer;
     FSampleMode: Boolean;
     {$IFDEF WITH_SYNTAX_TREE}
     FSyntaxTreeFrame: TfrmSyntaxTree;
@@ -42,6 +45,7 @@ type
     procedure HandleSyntaxTreeGetColor(Sender: TObject; ANode: TSyntaxNode; ALevel: Integer; var AColor: TColor);
     procedure HandleSyntaxTreeFocused(Sender: TObject; ANode: TSyntaxNode);
     {$ENDIF}
+    procedure UpdateCaption;
     procedure UpdateNode;
     procedure UpdateRanges;
   public
@@ -63,8 +67,10 @@ begin
   if OpenDialog.Execute then
   begin
     SynEdit1.Lines.LoadFromFile(OpenDialog.FileName);
+    FNodeFileName := OpenDialog.FileName;
     UpdateNode;
     UpdateRanges;
+    UpdateCaption;
   end;
 end;
 
@@ -198,6 +204,7 @@ begin
   begin
     UpdateNode;
     UpdateRanges;
+    UpdateCaption;
   end;
 end;
 
@@ -242,6 +249,12 @@ begin
   PaintBox1.Height := FLegendBottomY;
 end;
 
+procedure TForm9.UpdateCaption;
+begin
+  Caption := Format('DelphiAST SynEdit Test [FileName: %s Node Count: %d Max Level: %d]',
+    [FNodeFileName, FNodeCount, FNodeMaxLevel]);
+end;
+
 procedure TForm9.UpdateNode;
 var
   B: TPasSyntaxTreeBuilder;
@@ -276,6 +289,9 @@ procedure TForm9.UpdateRanges;
     BR: TBlockRange;
     C: TCompoundSyntaxNode;
   begin
+    Inc(FNodeCount);
+    if ALevel > FNodeMaxLevel then
+      FNodeMaxLevel := ALevel;
     if ANode is TCompoundSyntaxNode then
     begin
       C := TCompoundSyntaxNode(ANode);
@@ -293,6 +309,8 @@ procedure TForm9.UpdateRanges;
 
 begin
   FHighlighter.BlockRanges.Clear;
+  FNodeCount := 0;
+  FNodeMaxLevel := 0;
   if Assigned(FNode) then
     WalkNodes(FNode);
 end;
