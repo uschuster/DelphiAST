@@ -58,7 +58,7 @@ var
 implementation
 
 uses
-  DelphiAST;
+  DelphiAST, DelphiASTTempUtils;
 
 {$R *.dfm}
 
@@ -287,11 +287,12 @@ procedure TForm9.UpdateRanges;
   var
     I: Integer;
     BR: TBlockRange;
-    C: TCompoundSyntaxNode;
+    //C: TCompoundSyntaxNode;
   begin
     Inc(FNodeCount);
     if ALevel > FNodeMaxLevel then
       FNodeMaxLevel := ALevel;
+    {
     if ANode is TCompoundSyntaxNode then
     begin
       C := TCompoundSyntaxNode(ANode);
@@ -300,6 +301,16 @@ procedure TForm9.UpdateRanges;
       BR.FromLine := C.Line;
       BR.ToCol := C.EndCol;
       BR.ToLine := C.EndLine;
+      BR.Level := ALevel;
+    end;
+    }
+    if ANode.HasEnd then
+    begin
+      BR := FHighlighter.BlockRanges.Add;
+      BR.FromCol := ANode.Col;
+      BR.FromLine := ANode.Line;
+      BR.ToCol := ANode.FixedEndCol;
+      BR.ToLine := ANode.FixedEndLine;
       BR.Level := ALevel;
     end;
 
