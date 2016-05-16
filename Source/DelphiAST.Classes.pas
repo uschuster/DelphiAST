@@ -46,6 +46,7 @@ type
     function GetAttribute(const Key: TAttributeName): string;
     function HasAttribute(const Key: TAttributeName): Boolean;
     procedure SetAttribute(const Key: TAttributeName; const Value: string);
+    procedure ClearAttributes;
 
     function AddChild(Node: TSyntaxNode): TSyntaxNode; overload;
     function AddChild(Typ: TSyntaxNodeType): TSyntaxNode; overload;
@@ -446,7 +447,8 @@ begin
 
   if NodeIndex >= 0 then
   begin
-    Move(FChildNodes[NodeIndex + 1], FChildNodes[NodeIndex], SizeOf(FChildNodes[0]) * (Length(FChildNodes) - NodeIndex - 1));
+    if NodeIndex < High(FChildNodes) then
+      Move(FChildNodes[NodeIndex + 1], FChildNodes[NodeIndex], SizeOf(FChildNodes[0]) * (Length(FChildNodes) - NodeIndex - 1));
     SetLength(FChildNodes, Length(FChildNodes) - 1);
   end;   
 end;
@@ -507,6 +509,11 @@ var
   AttributeEntry: PAttributeEntry;
 begin
   Result := TryGetAttributeEntry(Key, AttributeEntry);
+end;
+
+procedure TSyntaxNode.ClearAttributes;
+begin
+  SetLength(FAttributes, 0);
 end;
 
 { TCompoundSyntaxNode }
