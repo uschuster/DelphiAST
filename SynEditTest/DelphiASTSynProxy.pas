@@ -138,13 +138,15 @@ type
     property Items[AIndex: Integer]: TBlockRange read GetItems; default;
   end;
 
+  THighlightColorScheme = (hcsLevels, hcsSemantic);
+
   TJVCSCompressedDiffSynProxyHighlighter = class(TSynCustomHighlighter)
   private
     FAttrDeleteLine: TSynHighlighterAttributes;
     FAttrDeleteChar: TSynHighlighterAttributes;
     FAttrInsertLine: TSynHighlighterAttributes;
     FAttrInsertChar: TSynHighlighterAttributes;
-    FLevels: array [0..9, 0..2] of TSynHighlighterAttributes;
+    FLevels: array [0..11, 0..2] of TSynHighlighterAttributes;
     FKeyAttr: TSynHighlighterAttributes;
     FStringAttri: TSynHighlighterAttributes;
     FHighlightLines: THighlightLines;
@@ -154,10 +156,13 @@ type
     FLineStr: string;
     FTokens: TLineTokens;
     FBlockRanges: TBlockRanges;
+    FColorScheme: THighlightColorScheme;
     procedure AddHighlightChar(ALine, ACharIndex: Integer; AKind: THighlightKind);
+    procedure SetColorSchemeColors;
     procedure SetInternalHighlighter(const Value: TSynCustomHighlighter);
     function GetLevelColor(AIndex: Integer): TColor;
     function GetLevelColorCount: Integer;
+    procedure SetColorScheme(const Value: THighlightColorScheme);
   protected
     function GetDefaultAttribute(Index: Integer): TSynHighlighterAttributes; override;
   public
@@ -182,6 +187,7 @@ type
     procedure Next; override;
     //procedure UpdateHighlight(ACompressedDiff: TJVCSCompressedDiff);
     property BlockRanges: TBlockRanges read FBlockRanges;
+    property ColorScheme: THighlightColorScheme read FColorScheme write SetColorScheme;
     property LevelColorCount: Integer read GetLevelColorCount;
     property LevelColors[AIndex: Integer]: TColor read GetLevelColor;
   end;
@@ -439,8 +445,6 @@ end;
 { TJVCSCompressedDiffSynProxyHighlighter }
 
 constructor TJVCSCompressedDiffSynProxyHighlighter.Create(AOwner: TComponent);
-var
-  I: Integer;
 begin
   inherited Create(AOwner);
   FInternalHighlighter := nil;
@@ -453,29 +457,8 @@ begin
   FAttrInsertChar := TSynHighlighterAttributes.Create('Insert Char'{$IFDEF UNISYNEDIT}, 'Insert Char'{$ENDIF});
   FAttrInsertChar.Background := RGB($80, $FF, $80);
 
-  for I := 0 to 2 do
-  begin
-    FLevels[0][I] := TSynHighlighterAttributes.Create('Level 0'{$IFDEF UNISYNEDIT}, 'Level 0'{$ENDIF});
-    FLevels[0][I].Background := RGB(224, 192, 192);
-    FLevels[1][I] := TSynHighlighterAttributes.Create('Level 1'{$IFDEF UNISYNEDIT}, 'Level 1'{$ENDIF});
-    FLevels[1][I].Background := RGB(255, 208, 208);
-    FLevels[2][I] := TSynHighlighterAttributes.Create('Level 2'{$IFDEF UNISYNEDIT}, 'Level 2'{$ENDIF});
-    FLevels[2][I].Background := RGB(192, 224, 192);
-    FLevels[3][I] := TSynHighlighterAttributes.Create('Level 3'{$IFDEF UNISYNEDIT}, 'Level 3'{$ENDIF});
-    FLevels[3][I].Background := RGB(208, 255, 208);
-    FLevels[4][I] := TSynHighlighterAttributes.Create('Level 4'{$IFDEF UNISYNEDIT}, 'Level 4'{$ENDIF});
-    FLevels[4][I].Background := RGB(192, 192, 224);
-    FLevels[5][I] := TSynHighlighterAttributes.Create('Level 5'{$IFDEF UNISYNEDIT}, 'Level 5'{$ENDIF});
-    FLevels[5][I].Background := RGB(208, 208, 255);
-    FLevels[6][I] := TSynHighlighterAttributes.Create('Level 6'{$IFDEF UNISYNEDIT}, 'Level 6'{$ENDIF});
-    FLevels[6][I].Background := RGB(224, 224, 192);
-    FLevels[7][I] := TSynHighlighterAttributes.Create('Level 7'{$IFDEF UNISYNEDIT}, 'Level 7'{$ENDIF});
-    FLevels[7][I].Background := RGB(255, 255, 208);
-    FLevels[8][I] := TSynHighlighterAttributes.Create('Level 8'{$IFDEF UNISYNEDIT}, 'Level 8'{$ENDIF});
-    FLevels[8][I].Background := RGB(224, 192, 224);
-    FLevels[9][I] := TSynHighlighterAttributes.Create('Level 9'{$IFDEF UNISYNEDIT}, 'Level 9'{$ENDIF});
-    FLevels[9][I].Background := RGB(255, 208, 255);
-  end;
+  FColorScheme := hcsLevels;
+  SetColorSchemeColors;
 
   FTokens := TLineTokens.Create;
   FHighlightLines := THighlightLines.Create;
@@ -532,7 +515,10 @@ begin
 end;
 function TJVCSCompressedDiffSynProxyHighlighter.GetLevelColor(AIndex: Integer): TColor;
 begin
-  Result := FLevels[AIndex][0].Background;
+  if FColorScheme = hcsSemantic then
+    Result := FLevels[AIndex][0].Foreground
+  else
+    Result := FLevels[AIndex][0].Background;
 end;
 
 function TJVCSCompressedDiffSynProxyHighlighter.GetLevelColorCount: Integer;
@@ -571,6 +557,152 @@ procedure TJVCSCompressedDiffSynProxyHighlighter.ResetRange;
 begin
   if Assigned(FInternalHighlighter) then
     FInternalHighlighter.ResetRange;
+end;
+
+procedure TJVCSCompressedDiffSynProxyHighlighter.SetColorScheme(const Value: THighlightColorScheme);
+begin
+  if FColorScheme <> Value then
+  begin
+    FColorScheme := Value;
+    SetColorSchemeColors;
+  end;
+end;
+
+procedure TJVCSCompressedDiffSynProxyHighlighter.SetColorSchemeColors;
+
+  function GetNextSemanticColor(AIndex: Integer): TColor;
+  begin
+    case (AIndex * 10) mod 67 of
+     1: Result := RGB(144, 102, 101);
+     2: Result := RGB(192, 135, 133);
+     3: Result := RGB(139, 88, 75);
+     4: Result := RGB(182, 126, 100);
+     5: Result := RGB(169, 114, 52);
+     6: Result := RGB(195, 145, 88);
+     7: Result := RGB(151, 113, 0);
+     8: Result := RGB(179, 146, 45);
+     9: Result := RGB(155, 150, 61);
+     10: Result := RGB(188, 179, 5);
+     11: Result := RGB(130, 142, 50);
+     12: Result := RGB(161, 178, 80);
+     13: Result := RGB(93, 155, 71);
+     14: Result := RGB(126, 188, 107);
+     15: Result := RGB(75, 132, 88);
+     16: Result := RGB(104, 170, 120);
+     17: Result := RGB(44, 135, 117);
+     18: Result := RGB(51, 168, 156);
+     19: Result := RGB(43, 132, 147);
+     20: Result := RGB(89, 163, 180);
+     21: Result := RGB(23, 112, 194);
+     22: Result := RGB(86, 159, 210);
+     23: Result := RGB(51, 97, 176);
+     24: Result := RGB(102, 144, 195);
+     25: Result := RGB(83, 97, 187);
+     26: Result := RGB(119, 149, 227);
+     27: Result := RGB(91, 86, 188);
+     28: Result := RGB(123, 124, 223);
+     29: Result := RGB(119, 94, 157);
+     30: Result := RGB(149, 135, 176);
+     31: Result := RGB(144, 90, 168);
+     32: Result := RGB(169, 133, 185);
+     33: Result := RGB(155, 90, 140);
+     34: Result := RGB(179, 128, 171);
+     35: Result := RGB(155, 90, 140);
+     36: Result := RGB(169, 133, 185);
+     37: Result := RGB(144, 90, 168);
+     38: Result := RGB(149, 135, 176);
+     39: Result := RGB(119, 94, 157);
+     40: Result := RGB(123, 124, 223);
+     41: Result := RGB(91, 86, 188);
+     42: Result := RGB(119, 149, 227);
+     43: Result := RGB(83, 97, 187);
+     44: Result := RGB(102, 144, 195);
+     45: Result := RGB(51, 97, 176);
+     46: Result := RGB(86, 159, 210);
+     47: Result := RGB(23, 112, 194);
+     48: Result := RGB(89, 163, 180);
+     49: Result := RGB(43, 132, 147);
+     50: Result := RGB(51, 168, 156);
+     51: Result := RGB(44, 135, 117);
+     52: Result := RGB(104, 170, 120);
+     53: Result := RGB(75, 132, 88);
+     54: Result := RGB(126, 188, 107);
+     55: Result := RGB(93, 155, 71);
+     56: Result := RGB(161, 178, 80);
+     57: Result := RGB(130, 142, 50);
+     58: Result := RGB(188, 179, 5);
+     59: Result := RGB(155, 150, 61);
+     60: Result := RGB(179, 146, 45);
+     61: Result := RGB(151, 113, 0);
+     62: Result := RGB(195, 145, 88);
+     63: Result := RGB(169, 114, 52);
+     64: Result := RGB(182, 126, 100);
+     65: Result := RGB(139, 88, 75);
+     66: Result := RGB(192, 135, 133);
+     67: Result := RGB(144, 102, 101);
+     else
+       Result := RGB(144, 102, 101);
+    end;
+  end;
+
+var
+  I, J: Integer;
+  S: string;
+begin
+  for I := Low(FLevels) to High(FLevels) do
+    for J := Low(FLevels[I]) to High(FLevels[I]) do
+      if Assigned(FLevels[I][J]) then
+      begin
+        FLevels[I][J].Free;
+        FLevels[I][J] := nil;
+      end;
+  if FColorScheme = hcsLevels then
+  begin
+    for I := 0 to 2 do
+    begin
+      FLevels[0][I] := TSynHighlighterAttributes.Create('Level 0'{$IFDEF UNISYNEDIT}, 'Level 0'{$ENDIF});
+      FLevels[0][I].Background := RGB(224, 192, 192);
+      FLevels[1][I] := TSynHighlighterAttributes.Create('Level 1'{$IFDEF UNISYNEDIT}, 'Level 1'{$ENDIF});
+      FLevels[1][I].Background := RGB(255, 208, 208);
+      FLevels[2][I] := TSynHighlighterAttributes.Create('Level 2'{$IFDEF UNISYNEDIT}, 'Level 2'{$ENDIF});
+      FLevels[2][I].Background := RGB(192, 224, 192);
+      FLevels[3][I] := TSynHighlighterAttributes.Create('Level 3'{$IFDEF UNISYNEDIT}, 'Level 3'{$ENDIF});
+      FLevels[3][I].Background := RGB(208, 255, 208);
+      FLevels[4][I] := TSynHighlighterAttributes.Create('Level 4'{$IFDEF UNISYNEDIT}, 'Level 4'{$ENDIF});
+      FLevels[4][I].Background := RGB(192, 192, 224);
+      FLevels[5][I] := TSynHighlighterAttributes.Create('Level 5'{$IFDEF UNISYNEDIT}, 'Level 5'{$ENDIF});
+      FLevels[5][I].Background := RGB(208, 208, 255);
+      FLevels[6][I] := TSynHighlighterAttributes.Create('Level 6'{$IFDEF UNISYNEDIT}, 'Level 6'{$ENDIF});
+      FLevels[6][I].Background := RGB(224, 224, 192);
+      FLevels[7][I] := TSynHighlighterAttributes.Create('Level 7'{$IFDEF UNISYNEDIT}, 'Level 7'{$ENDIF});
+      FLevels[7][I].Background := RGB(255, 255, 208);
+      FLevels[8][I] := TSynHighlighterAttributes.Create('Level 8'{$IFDEF UNISYNEDIT}, 'Level 8'{$ENDIF});
+      FLevels[8][I].Background := RGB(224, 192, 224);
+      FLevels[9][I] := TSynHighlighterAttributes.Create('Level 9'{$IFDEF UNISYNEDIT}, 'Level 9'{$ENDIF});
+      FLevels[9][I].Background := RGB(255, 208, 255);
+      FLevels[10][I] := TSynHighlighterAttributes.Create('Level 10'{$IFDEF UNISYNEDIT}, 'Level 10'{$ENDIF});
+      FLevels[10][I].Background := RGB(192, 224, 224);
+      FLevels[11][I] := TSynHighlighterAttributes.Create('Level 11'{$IFDEF UNISYNEDIT}, 'Level 11'{$ENDIF});
+      FLevels[11][I].Background := RGB(208, 255, 255);
+    end;
+  end
+  else
+  if FColorScheme = hcsSemantic then
+  begin
+    for I := 0 to 2 do
+    begin
+      FLevels[0][I] := TSynHighlighterAttributes.Create('Level 0'{$IFDEF UNISYNEDIT}, 'Level 0'{$ENDIF});
+      for J := 1 to 11 do
+      begin
+        S := Format('Symbol #%d', [J]);
+        FLevels[J][I] := TSynHighlighterAttributes.Create(S{$IFDEF UNISYNEDIT}, S{$ENDIF});
+        FLevels[J][I].Foreground := GetNextSemanticColor(J);
+        FLevels[J][I].Style := [fsBold];
+      end;
+    end;
+  end;
+  if Assigned(FInternalHighlighter) then
+    SetInternalHighlighter(FInternalHighlighter);
 end;
 
 procedure TJVCSCompressedDiffSynProxyHighlighter.SetInternalHighlighter(const Value: TSynCustomHighlighter);

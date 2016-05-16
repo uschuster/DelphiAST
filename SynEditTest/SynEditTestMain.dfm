@@ -36,6 +36,13 @@ object Form9: TForm9
     Align = alTop
     BevelOuter = bvNone
     TabOrder = 0
+    object Label1: TLabel
+      Left = 296
+      Top = 8
+      Width = 55
+      Height = 13
+      Caption = 'Highlighting'
+    end
     object btnOpen: TButton
       Left = 4
       Top = 4
@@ -54,6 +61,18 @@ object Form9: TForm9
       TabOrder = 1
       Visible = False
       OnClick = btnFocusSyntaxTreeNodeAtCursorClick
+    end
+    object cbColorScheme: TComboBox
+      Left = 360
+      Top = 5
+      Width = 97
+      Height = 21
+      Style = csDropDownList
+      TabOrder = 5
+      OnChange = cbColorSchemeChange
+      Items.Strings = (
+        'Levels'
+        'Semantic')
     end
   end
   object SynEdit1: TSynEdit

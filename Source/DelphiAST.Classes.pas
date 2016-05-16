@@ -29,6 +29,8 @@ type
     FCol: Integer;
     FLine: Integer;
     FFileName: string;
+    FSymbolNode: TSyntaxNode;
+    FColorIndex: Integer;
     function GetHasChildren: Boolean;
     function GetHasAttributes: Boolean;
     function TryGetAttributeEntry(const Key: TAttributeName; var AttributeEntry: PAttributeEntry): boolean;
@@ -65,6 +67,10 @@ type
 
     property Col: Integer read FCol write FCol;
     property Line: Integer read FLine write FLine;
+
+    //TODO:rather something like user data
+    property SymbolNode: TSyntaxNode read FSymbolNode write FSymbolNode;
+    property ColorIndex: Integer read FColorIndex write FColorIndex;
   end;
 
   TCompoundSyntaxNode = class(TSyntaxNode)

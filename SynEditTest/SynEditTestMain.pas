@@ -22,10 +22,13 @@ type
     pnlSyntaxTree: TPanel;
     splSyntaxTree: TSplitter;
     btnFocusSyntaxTreeNodeAtCursor: TButton;
+    cbColorScheme: TComboBox;
+    Label1: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure PaintBox1Paint(Sender: TObject);
     procedure btnOpenClick(Sender: TObject);
     procedure btnFocusSyntaxTreeNodeAtCursorClick(Sender: TObject);
+    procedure cbColorSchemeChange(Sender: TObject);
   private
     { Private declarations }
     FLegendBottomY: Integer;
@@ -48,6 +51,7 @@ type
     procedure UpdateCaption;
     procedure UpdateNode;
     procedure UpdateRanges;
+    procedure UpdateRangesSemantic;
   public
     { Public declarations }
   end;
@@ -58,7 +62,7 @@ var
 implementation
 
 uses
-  DelphiAST, DelphiASTTempUtils;
+  DelphiAST, DelphiASTTempUtils, SymbolResolver;
 
 {$R *.dfm}
 
@@ -69,9 +73,33 @@ begin
     SynEdit1.Lines.LoadFromFile(OpenDialog.FileName);
     FNodeFileName := OpenDialog.FileName;
     UpdateNode;
-    UpdateRanges;
+    if cbColorScheme.ItemIndex = 1 then
+    begin
+      ResolveSymbols(FNode);
+      UpdateRangesSemantic;
+    end
+    else
+      UpdateRanges;
     UpdateCaption;
   end;
+end;
+
+procedure TForm9.cbColorSchemeChange(Sender: TObject);
+begin
+  if cbColorScheme.ItemIndex = 1 then
+  begin
+    FHighlighter.ColorScheme := hcsSemantic;
+    ResolveSymbols(FNode);
+    UpdateRangesSemantic;
+  end
+  else
+  begin
+    FHighlighter.ColorScheme := hcsLevels;
+    UpdateRanges;
+  end;
+  SynEdit1.Invalidate;
+  PaintBox1.Invalidate;
+  UpdateCaption;
 end;
 
 procedure TForm9.btnFocusSyntaxTreeNodeAtCursorClick(Sender: TObject);
@@ -93,6 +121,7 @@ procedure TForm9.DrawLegend(ACanvas: TCanvas; ARect: TRect);
 var
   I, Y, TextX: Integer;
   ColorRect: TRect;
+  S: string;
   R: TSize;
 begin
   ACanvas.Brush.Color := clWindow;
@@ -107,7 +136,16 @@ begin
     ACanvas.Brush.Style := bsSolid;
     ACanvas.Rectangle(ColorRect);
     ACanvas.Brush.Style := bsClear;
-    ACanvas.TextOut(TextX, Y, Format('Level %d', [I]));
+    if FHighlighter.ColorScheme = hcsSemantic then
+    begin
+      if I = 0 then
+        S := 'Other'
+      else
+        S := Format('Symbol #%d', [I]);
+    end
+    else
+      S := Format('Level %d', [I]);
+    ACanvas.TextOut(TextX, Y, S);
     Inc(Y, R.cy + 2);
     FLegendBottomY := Y;
   end;
@@ -185,6 +223,7 @@ begin
   FHighlighter := TJVCSCompressedDiffSynProxyHighlighter.Create(nil);
   FHighlighter.InternalHighlighter := SynPasSyn1;
   SynEdit1.Highlighter := FHighlighter;
+  cbColorScheme.ItemIndex := 0;
   {$IFDEF WITH_SYNTAX_TREE}
   FSyntaxTreeFrame := TfrmSyntaxTree.Create(Self);
   FSyntaxTreeFrame.Parent := pnlSyntaxTree;
@@ -316,6 +355,40 @@ procedure TForm9.UpdateRanges;
 
     for I := Low(ANode.ChildNodes) to High(ANode.ChildNodes) do
       WalkNodes(ANode.ChildNodes[I], ALevel + 1);
+  end;
+
+begin
+  FHighlighter.BlockRanges.Clear;
+  FNodeCount := 0;
+  FNodeMaxLevel := 0;
+  if Assigned(FNode) then
+    WalkNodes(FNode);
+end;
+
+procedure TForm9.UpdateRangesSemantic;
+
+  procedure WalkNodes(ANode: TSyntaxNode);
+  var
+    I: Integer;
+    BR: TBlockRange;
+  begin
+    Inc(FNodeCount);
+    if Assigned(ANode.SymbolNode) or (ANode.ColorIndex > 0) then
+    begin
+      BR := FHighlighter.BlockRanges.Add;
+      BR.FromCol := ANode.Col;
+      BR.FromLine := ANode.Line;
+      BR.ToCol := ANode.FixedEndCol;
+      BR.ToLine := ANode.FixedEndLine;
+      if Assigned(ANode.SymbolNode) then
+        BR.Level := ANode.SymbolNode.ColorIndex - 1
+      else
+        BR.Level := ANode.ColorIndex - 1;
+      if BR.Level > FNodeMaxLevel then
+        FNodeMaxLevel := BR.Level;
+    end;
+    for I := Low(ANode.ChildNodes) to High(ANode.ChildNodes) do
+      WalkNodes(ANode.ChildNodes[I]);
   end;
 
 begin
