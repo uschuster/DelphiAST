@@ -313,6 +313,7 @@ type
 
     procedure AddDefine(const ADefine: string);
     procedure RemoveDefine(const ADefine: string);
+    function IsDeclared(const ASymbol: string): Boolean;
     function IsDefined(const ADefine: string): Boolean;
     procedure ClearDefines;
     procedure InitDefinesDefinedByCompiler;
@@ -1679,6 +1680,13 @@ begin
         LParams := TrimLeft(Copy(LParams, 3, Length(LParams) - 2));
       end;
     end;
+  end
+  else
+  if (Pos('DECLARED(', LParams) = 1) then
+  begin
+    LDefine := Copy(LParams, 10, Pos(')', LParams) - 10);
+    Result := IsDeclared(LDefine);
+    //TODO: support NOT, OR, AND
   end else
     Result := False;
 end;
@@ -1789,6 +1797,11 @@ begin
   FTokenID := ptIntegerConst;
   while CharInSet(FBuffer.Buf[FBuffer.Run], ['0'..'9', 'A'..'F', 'a'..'f']) do
     Inc(FBuffer.Run);
+end;
+
+function TmwBasePasLex.IsDeclared(const ASymbol: string): Boolean;
+begin
+  Result := SameText(ASymbol, 'ANSICHAR');
 end;
 
 function TmwBasePasLex.IsDefined(const ADefine: string): Boolean;
